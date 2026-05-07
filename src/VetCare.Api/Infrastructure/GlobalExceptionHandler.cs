@@ -1,0 +1,67 @@
+using FluentValidation;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using VetCare.Application.Common.Exceptions;
+
+namespace VetCare.Api.Infrastructure;
+
+internal sealed class GlobalExceptionHandler : IExceptionHandler
+{
+    private readonly IProblemDetailsService _problemDetailsService;
+
+    public GlobalExceptionHandler(IProblemDetailsService problemDetailsService)
+    {
+        _problemDetailsService = problemDetailsService;
+    }
+
+    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
+    {
+        switch (exception)
+        {
+            case ValidationException validation:
+                {
+                    httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+                    var errors = validation.Errors
+                        .GroupBy(e => e.PropertyName)
+                        .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
+
+                    var problem = new ValidationProblemDetails(errors)
+                    {
+                        Status = StatusCodes.Status400BadRequest,
+                        Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+                        Title = "One or more validation errors occurred.",
+                    };
+
+                    return await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+                    {
+                        HttpContext = httpContext,
+                        ProblemDetails = problem,
+                        Exception = exception,
+                    });
+                }
+
+            case NotFoundException notFound:
+                {
+                    httpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+                    var problem = new ProblemDetails
+                    {
+                        Status = StatusCodes.Status404NotFound,
+                        Type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
+                        Title = "Resource not found.",
+                        Detail = notFound.Message,
+                    };
+
+                    return await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+                    {
+                        HttpContext = httpContext,
+                        ProblemDetails = problem,
+                        Exception = exception,
+                    });
+                }
+
+            default:
+                return false;
+        }
+    }
+}

@@ -48,4 +48,27 @@ public sealed class Owner : AggregateRoot, ITenantEntity
     public string Phone { get; private set; }
 
     public string Email { get; private set; }
+
+    public void UpdateContact(string fullName, string phone, string email)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            throw new ArgumentException("Owner full name must not be empty.", nameof(fullName));
+        }
+
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            throw new ArgumentException("Owner phone must not be empty.", nameof(phone));
+        }
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            throw new ArgumentException("Owner email must not be empty.", nameof(email));
+        }
+
+        FullName = fullName.Trim();
+        Phone = phone.Trim();
+        Email = email.Trim().ToLowerInvariant();
+        Touch();
+    }
 }
