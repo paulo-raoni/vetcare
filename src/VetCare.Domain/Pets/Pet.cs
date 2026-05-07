@@ -74,4 +74,29 @@ public sealed class Pet : AggregateRoot, ITenantEntity
         PhotoUrl = string.IsNullOrWhiteSpace(photoUrl) ? null : photoUrl.Trim();
         Touch();
     }
+
+    public void UpdateProfile(string name, Species species, string breed, DateOnly dateOfBirth, string? photoUrl)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("Pet name must not be empty.", nameof(name));
+        }
+
+        if (string.IsNullOrWhiteSpace(breed))
+        {
+            throw new ArgumentException("Pet breed must not be empty.", nameof(breed));
+        }
+
+        if (dateOfBirth > DateOnly.FromDateTime(DateTime.UtcNow))
+        {
+            throw new ArgumentException("Pet date of birth must not be in the future.", nameof(dateOfBirth));
+        }
+
+        Name = name.Trim();
+        Species = species;
+        Breed = breed.Trim();
+        DateOfBirth = dateOfBirth;
+        PhotoUrl = string.IsNullOrWhiteSpace(photoUrl) ? null : photoUrl.Trim();
+        Touch();
+    }
 }

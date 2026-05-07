@@ -2,11 +2,17 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Asp.Versioning.Http" />
     <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Annotations" />
   </ItemGroup>
 
   <ItemGroup>

@@ -3,13 +3,17 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using VetCare.Application.Abstractions.Identity;
 using VetCare.Application.Abstractions.MultiTenancy;
 using VetCare.Application.Abstractions.Persistence;
+using VetCare.Domain.Owners;
+using VetCare.Domain.Pets;
 using VetCare.Infrastructure.Identity;
 using VetCare.Infrastructure.MultiTenancy;
 using VetCare.Infrastructure.Persistence;
+using VetCare.Infrastructure.Persistence.Repositories;
 
 namespace VetCare.Infrastructure;
 
@@ -27,6 +31,9 @@ public static class DependencyInjection
 
         services.AddScoped<IVetCareDbContext>(sp => sp.GetRequiredService<VetCareDbContext>());
 
+        services.AddScoped<IRepository<Owner>, OwnerRepository>();
+        services.AddScoped<IRepository<Pet>, PetRepository>();
+
         services.AddScoped<ITenantProvider, CurrentTenantProvider>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
@@ -41,13 +48,14 @@ public static class DependencyInjection
 
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
-        var jwt = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
-            ?? throw new InvalidOperationException("Jwt section is not configured.");
-
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
+            .AddJwtBearer();
+
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IOptions<JwtOptions>>((bearerOptions, jwtOptions) =>
             {
-                options.TokenValidationParameters = new TokenValidationParameters
+                var jwt = jwtOptions.Value;
+                bearerOptions.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
                     ValidateAudience = true,
