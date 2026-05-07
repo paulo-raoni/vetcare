@@ -5,6 +5,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Http" />
+    <PackageReference Include="MediatR" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VetCare.Application\VetCare.Application.csproj" />
+    <ProjectReference Include="..\VetCare.Infrastructure\VetCare.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="VetCare.Infrastructure.IntegrationTests" />
   </ItemGroup>
 

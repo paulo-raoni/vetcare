@@ -6,6 +6,25 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- EF Core -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.10" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.10" />
+
+    <!-- Auth -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.10" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
+    <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
+
+    <!-- API versioning -->
+    <PackageVersion Include="Asp.Versioning.Http" Version="8.1.0" />
+
+    <!-- Mediator -->
+    <PackageVersion Include="MediatR" Version="12.4.1" />
+    <PackageVersion Include="MediatR.Contracts" Version="2.0.1" />
+
     <!-- Test SDK -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageVersion Include="xunit" Version="2.9.2" />
