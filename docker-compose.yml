@@ -1,0 +1,47 @@
+name: vetcare
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: vetcare-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: vetcare
+      POSTGRES_USER: vetcare
+      POSTGRES_PASSWORD: vetcare
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - vetcare-net
+
+  mongo:
+    image: mongo:7
+    container_name: vetcare-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - vetcare-net
+
+  localstack:
+    image: localstack/localstack:3
+    container_name: vetcare-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: s3,sqs
+      DEBUG: "0"
+    volumes:
+      - ./infra/localstack/init:/etc/localstack/init/ready.d:ro
+    networks:
+      - vetcare-net
+
+networks:
+  vetcare-net:
+    name: vetcare-net
+
+volumes:
+  postgres-data:
+  mongo-data:
