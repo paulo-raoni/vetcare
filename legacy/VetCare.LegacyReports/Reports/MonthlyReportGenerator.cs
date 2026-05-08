@@ -17,8 +17,8 @@ namespace VetCare.LegacyReports.Reports
             "Unknown",
             "Scheduled",
             "Confirmed",
-            "Completed",
             "Cancelled",
+            "Completed",
         };
 
         private readonly IAppointmentReportRepository _repository;
@@ -28,13 +28,18 @@ namespace VetCare.LegacyReports.Reports
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         }
 
-        public string Generate(int year, int month)
+        public string Generate(Guid tenantId, int year, int month)
         {
-            return Generate(year, month, DefaultOutputDirectory);
+            return Generate(tenantId, year, month, DefaultOutputDirectory);
         }
 
-        public string Generate(int year, int month, string outputDirectory)
+        public string Generate(Guid tenantId, int year, int month, string outputDirectory)
         {
+            if (tenantId == Guid.Empty)
+            {
+                throw new ArgumentException("Tenant id must not be empty.", nameof(tenantId));
+            }
+
             if (month < 1 || month > 12)
             {
                 throw new ArgumentOutOfRangeException(nameof(month), month, "Month must be between 1 and 12.");
@@ -50,7 +55,7 @@ namespace VetCare.LegacyReports.Reports
             var fileName = string.Format(CultureInfo.InvariantCulture, "vetcare-{0:D4}-{1:D2}.pdf", year, month);
             var path = Path.Combine(outputDirectory, fileName);
 
-            var rows = _repository.GetForMonth(year, month);
+            var rows = _repository.GetForMonth(tenantId, year, month);
 
             using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write))
             {

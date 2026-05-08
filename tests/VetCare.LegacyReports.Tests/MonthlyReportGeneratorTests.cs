@@ -14,6 +14,8 @@ namespace VetCare.LegacyReports.Tests
 {
     public sealed class MonthlyReportGeneratorTests : IDisposable
     {
+        private static readonly Guid SampleTenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
         private readonly string _outputDirectory =
             Path.Combine(Path.GetTempPath(), "vetcare-legacy-reports-" + Guid.NewGuid().ToString("N"));
 
@@ -23,7 +25,7 @@ namespace VetCare.LegacyReports.Tests
             var repository = new StubRepository(new List<AppointmentReport>());
             var generator = new MonthlyReportGenerator(repository);
 
-            var path = generator.Generate(2026, 5, _outputDirectory);
+            var path = generator.Generate(SampleTenantId, 2026, 5, _outputDirectory);
 
             path.Should().Be(Path.Combine(_outputDirectory, "vetcare-2026-05.pdf"));
             File.Exists(path).Should().BeTrue();
@@ -43,7 +45,7 @@ namespace VetCare.LegacyReports.Tests
             var repository = new StubRepository(rows);
             var generator = new MonthlyReportGenerator(repository);
 
-            var path = generator.Generate(2026, 5, _outputDirectory);
+            var path = generator.Generate(SampleTenantId, 2026, 5, _outputDirectory);
 
             File.Exists(path).Should().BeTrue();
 
@@ -115,7 +117,7 @@ namespace VetCare.LegacyReports.Tests
                 _rows = rows;
             }
 
-            public IReadOnlyList<AppointmentReport> GetForMonth(int year, int month)
+            public IReadOnlyList<AppointmentReport> GetForMonth(Guid tenantId, int year, int month)
             {
                 return _rows;
             }

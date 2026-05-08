@@ -1,5 +1,26 @@
 # VetCare — Progress
 
+## fix/runtime-critical — M0–M5 review fallout (in delivery)
+
+- **Vaccination list endpoint no longer 500s.** `ListVaccinationsQueryHandler` was missing despite `ListVaccinationsQuery`/validator/spec being wired through MediatR; added at `src/VetCare.Application/Vaccinations/Queries/ListVaccinations/ListVaccinationsQueryHandler.cs`, mirroring `ListAppointmentsQueryHandler` (paged + count specs over `IRepository<Vaccination>`, Mapster-projected to `VaccinationDto`).
+- **LocalStack bootstrap aligned with runtime config.** `infra/localstack/init/01-bootstrap.sh` now creates `s3://vetcare-pets` (matches `S3:BucketName`) and the SQS queues `appointment-reminders` + `appointment-cancellations` (matches `QueueNames` constants used by `OnAppointmentScheduled` / `OnAppointmentCancelled`). The previous `vetcare-photos` / `vetcare-reminders` names did not match anything the app subscribes to.
+- **Mongo dev connection string fixed.** `appsettings.Development.json` was passing `vetcare:vetcare@` credentials but `docker-compose.yml`'s `mongo:7` runs without auth, so the C# driver's SCRAM handshake failed. Switched the dev connection string to `mongodb://localhost:27017` to match the no-auth container; the integration test factory already used the same form.
+- **Legacy status labels match the actual EF-stored enum.** `MonthlyReportGenerator.StatusLabels` had `Completed` / `Cancelled` swapped relative to `AppointmentStatus` (`Scheduled = 1, Confirmed = 2, Cancelled = 3, Completed = 4`); reordered to `Unknown / Scheduled / Confirmed / Cancelled / Completed` so int → label rendering is correct end-to-end (PDF text now reads "Cancelled" for status 3 and "Completed" for status 4). _Note: the original review prompt described a 0-based enum; verified against `src/VetCare.Domain/Appointments/AppointmentStatus.cs` and aligned with the actual 1-based values._
+- **Legacy report is now tenant-scoped.** Added `tenantId` to `IAppointmentReportRepository.GetForMonth` / `EfAppointmentReportRepository` (SQL gains `WHERE a."TenantId" = @tenantId` plus an `Argument*` guard against `Guid.Empty`) and propagated through `MonthlyReportGenerator.Generate(tenantId, year, month, ...)`. `Program.Main` now requires `--tenant-id <guid>`; missing/invalid prints `Error: ...` + a usage line and returns exit 1.
+
+### Tests added
+
+- `tests/VetCare.Application.UnitTests/Vaccinations/ListVaccinationsHandlerTests.cs` — paged-result happy path (filter by `petId`, two items, total 5) and empty-list path. Application unit count 30 → 32.
+- `tests/VetCare.LegacyReports.Tests/StatusLabelTests.cs` — `[Theory]` over `(1, "Scheduled")`, `(2, "Confirmed")`, `(3, "Cancelled")`, `(4, "Completed")` extracts the rendered PDF text via `iTextSharp.text.pdf.parser.PdfTextExtractor` and asserts the expected label is present.
+- `tests/VetCare.LegacyReports.Tests/EfAppointmentReportRepositoryTests.cs` — reflects on the private `Sql` constant to assert it contains `a."TenantId" = @tenantId` (plus `@year` / `@month`); guards `GetForMonth` against `Guid.Empty` and out-of-range months. Legacy tests still build under `make build` and remain skipped at runtime by `IsTestProject=false` (per the M5 net48 + Linux note).
+- Existing `MonthlyReportGeneratorTests` updated to pass a `Guid` tenant id through the new `Generate(tenantId, ...)` overload and the stub's `GetForMonth(tenantId, year, month)` signature.
+
+### Gates
+
+- `make build` — 0 warnings, 0 errors.
+- `make test` — 80 passing (Domain 27, Application 32, Integration 21); legacy tests skipped at runtime by `IsTestProject=false`.
+- `make lint` — clean.
+
 ## M5 — Legacy reports (.NET Framework 4.8 + EF6 + iTextSharp) (in delivery)
 
 - `legacy/VetCare.LegacyReports` opts out of central package management (`<ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>`) so net48-only packages can pin their own versions without polluting `Directory.Packages.props` (which targets net8.0). Pinned: `EntityFramework` 6.5.1, `iTextSharp` 5.5.13.3, `Npgsql` 4.1.13. `Microsoft.NETFramework.ReferenceAssemblies` 1.0.3 keeps the project building on Linux without a Windows host.

@@ -7,17 +7,25 @@ namespace VetCare.LegacyReports
 {
     internal static class Program
     {
+        private const string Usage =
+            "Usage: VetCare.LegacyReports --tenant-id <guid> [--year <yyyy>] [--month <1-12>]";
+
         private static int Main(string[] args)
         {
             try
             {
-                var (year, month) = ParseArgs(args);
+                if (!TryParseArgs(args, out var tenantId, out var year, out var month, out var error))
+                {
+                    Console.Error.WriteLine("Error: " + error);
+                    Console.Error.WriteLine(Usage);
+                    return 1;
+                }
 
                 using (var context = new LegacyDbContext())
                 {
                     var repository = new EfAppointmentReportRepository(context);
                     var generator = new MonthlyReportGenerator(repository);
-                    var path = generator.Generate(year, month);
+                    var path = generator.Generate(tenantId, year, month);
                     Console.WriteLine("Report generated: " + path);
                 }
 
@@ -30,10 +38,16 @@ namespace VetCare.LegacyReports
             }
         }
 
-        internal static (int Year, int Month) ParseArgs(string[] args)
+        internal static bool TryParseArgs(string[] args, out Guid tenantId, out int year, out int month, out string error)
         {
-            int? year = null;
-            int? month = null;
+            tenantId = Guid.Empty;
+            year = 0;
+            month = 0;
+            error = null;
+
+            string tenantRaw = null;
+            int? yearArg = null;
+            int? monthArg = null;
 
             for (var i = 0; i < args.Length; i++)
             {
@@ -42,23 +56,36 @@ namespace VetCare.LegacyReports
                     break;
                 }
 
-                if (string.Equals(args[i], "--year", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(args[i], "--tenant-id", StringComparison.OrdinalIgnoreCase))
                 {
-                    year = int.Parse(args[++i], CultureInfo.InvariantCulture);
+                    tenantRaw = args[++i];
+                }
+                else if (string.Equals(args[i], "--year", StringComparison.OrdinalIgnoreCase))
+                {
+                    yearArg = int.Parse(args[++i], CultureInfo.InvariantCulture);
                 }
                 else if (string.Equals(args[i], "--month", StringComparison.OrdinalIgnoreCase))
                 {
-                    month = int.Parse(args[++i], CultureInfo.InvariantCulture);
+                    monthArg = int.Parse(args[++i], CultureInfo.InvariantCulture);
                 }
             }
 
-            if (year.HasValue && month.HasValue)
+            if (string.IsNullOrWhiteSpace(tenantRaw))
             {
-                return (year.Value, month.Value);
+                error = "--tenant-id is required.";
+                return false;
+            }
+
+            if (!Guid.TryParse(tenantRaw, out tenantId) || tenantId == Guid.Empty)
+            {
+                error = "--tenant-id must be a non-empty Guid.";
+                return false;
             }
 
             var previousMonth = DateTime.UtcNow.AddMonths(-1);
-            return (year ?? previousMonth.Year, month ?? previousMonth.Month);
+            year = yearArg ?? previousMonth.Year;
+            month = monthArg ?? previousMonth.Month;
+            return true;
         }
     }
 }
