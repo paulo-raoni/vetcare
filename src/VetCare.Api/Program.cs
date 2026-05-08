@@ -1,9 +1,11 @@
 using System.Reflection;
 using Asp.Versioning;
 using Microsoft.OpenApi.Models;
+using VetCare.Api.Endpoints.Appointments;
 using VetCare.Api.Endpoints.Auth;
 using VetCare.Api.Endpoints.Owners;
 using VetCare.Api.Endpoints.Pets;
+using VetCare.Api.Endpoints.Vaccinations;
 using VetCare.Api.Infrastructure;
 using VetCare.Application;
 using VetCare.Infrastructure;
@@ -80,6 +82,8 @@ app.MapGet("/health", () => "ok");
 app.MapAuthEndpoints(versionSet);
 app.MapOwnerEndpoints(versionSet);
 app.MapPetEndpoints(versionSet);
+app.MapAppointmentEndpoints(versionSet);
+app.MapVaccinationEndpoints(versionSet);
 
 app.Run();
 

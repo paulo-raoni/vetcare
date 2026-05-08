@@ -21,6 +21,10 @@
     <!-- API versioning -->
     <PackageVersion Include="Asp.Versioning.Http" Version="8.1.0" />
 
+    <!-- AWS -->
+    <PackageVersion Include="AWSSDK.SQS" Version="3.7.400.46" />
+    <PackageVersion Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.301" />
+
     <!-- Mediator -->
     <PackageVersion Include="MediatR" Version="12.4.1" />
     <PackageVersion Include="MediatR.Contracts" Version="2.0.1" />

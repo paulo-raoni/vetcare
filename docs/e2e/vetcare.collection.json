@@ -1,0 +1,297 @@
+{
+  "info": {
+    "name": "VetCare API — Happy Path",
+    "description": "End-to-end happy-path collection for VetCare: register → login → owner → pet → appointment → confirm → vaccination. Run against a local API with `newman run docs/e2e/vetcare.collection.json --env-var baseUrl=http://localhost:5000`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "tenantSlug",
+      "value": ""
+    },
+    {
+      "key": "email",
+      "value": ""
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "ownerId",
+      "value": ""
+    },
+    {
+      "key": "petId",
+      "value": ""
+    },
+    {
+      "key": "appointmentId",
+      "value": ""
+    },
+    {
+      "key": "vaccinationId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Register tenant + admin",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const suffix = Math.random().toString(36).slice(2, 10);",
+              "pm.collectionVariables.set('tenantSlug', `clinic-${suffix}`);",
+              "pm.collectionVariables.set('email', `admin-${suffix}@acme.test`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.expect(body.accessToken).to.be.a('string').and.not.empty;",
+              "pm.collectionVariables.set('accessToken', body.accessToken);",
+              "pm.collectionVariables.set('userId', body.userId);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "register"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tenantName\": \"Acme Vet\",\n  \"tenantSlug\": \"{{tenantSlug}}\",\n  \"email\": \"{{email}}\",\n  \"password\": \"ChangeMe123!\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Login (capture token)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.expect(body.accessToken).to.be.a('string').and.not.empty;",
+              "pm.collectionVariables.set('accessToken', body.accessToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tenantSlug\": \"{{tenantSlug}}\",\n  \"email\": \"{{email}}\",\n  \"password\": \"ChangeMe123!\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Create owner",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('ownerId', body.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/owners",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "owners"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Jane Doe\",\n  \"phone\": \"+5511999999999\",\n  \"email\": \"jane@example.com\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Create pet",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('petId', body.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/pets",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "pets"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ownerId\": \"{{ownerId}}\",\n  \"name\": \"Rex\",\n  \"species\": 1,\n  \"breed\": \"Labrador\",\n  \"dateOfBirth\": \"2022-04-15\",\n  \"photoUrl\": null\n}"
+        }
+      }
+    },
+    {
+      "name": "Schedule appointment",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString();",
+              "pm.collectionVariables.set('scheduledAt', future);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.expect(body.status).to.eql(1);",
+              "pm.collectionVariables.set('appointmentId', body.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/appointments",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "appointments"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"petId\": \"{{petId}}\",\n  \"vetUserId\": \"{{userId}}\",\n  \"scheduledAt\": \"{{scheduledAt}}\",\n  \"notes\": \"Annual check-up\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Confirm appointment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.expect(body.status).to.eql(2);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/appointments/{{appointmentId}}/confirm",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "appointments", "{{appointmentId}}", "confirm"]
+        }
+      }
+    },
+    {
+      "name": "Record vaccination",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const past = new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString();",
+              "const next = new Date(Date.now() + 1000 * 60 * 60 * 24 * 358).toISOString();",
+              "pm.collectionVariables.set('administeredAt', past);",
+              "pm.collectionVariables.set('nextDueAt', next);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('vaccinationId', body.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/vaccinations",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "vaccinations"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"petId\": \"{{petId}}\",\n  \"vaccineName\": \"Rabies\",\n  \"administeredAt\": \"{{administeredAt}}\",\n  \"nextDueAt\": \"{{nextDueAt}}\",\n  \"batchNumber\": \"RAB-2026-0412\"\n}"
+        }
+      }
+    }
+  ]
+}
