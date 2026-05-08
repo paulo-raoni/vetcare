@@ -7,6 +7,8 @@ public interface IRepository<T>
 {
     Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
+    Task<T?> GetByIdAsyncNoTracking(Guid id, CancellationToken cancellationToken = default);
+
     Task<T?> SingleOrDefaultAsync(ISpecification<T> specification, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<T>> ListAsync(ISpecification<T> specification, CancellationToken cancellationToken = default);

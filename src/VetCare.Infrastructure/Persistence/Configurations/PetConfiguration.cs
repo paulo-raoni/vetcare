@@ -30,6 +30,7 @@ public sealed class PetConfiguration : IEntityTypeConfiguration<Pet>
         builder.Property(p => p.UpdatedAt).IsRequired();
 
         builder.HasIndex(p => new { p.TenantId, p.OwnerId });
+        builder.HasIndex(p => new { p.TenantId, p.Name });
 
         builder.HasOne<Tenant>()
             .WithMany()

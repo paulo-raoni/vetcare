@@ -33,6 +33,7 @@ public sealed class AppointmentConfiguration : IEntityTypeConfiguration<Appointm
 
         builder.HasIndex(a => new { a.TenantId, a.PetId });
         builder.HasIndex(a => new { a.TenantId, a.ScheduledAt });
+        builder.HasIndex(a => new { a.TenantId, a.Status });
 
         builder.HasOne<Pet>()
             .WithMany()

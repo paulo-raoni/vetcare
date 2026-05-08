@@ -25,6 +25,7 @@ public sealed class OwnerConfiguration : IEntityTypeConfiguration<Owner>
         builder.Property(o => o.UpdatedAt).IsRequired();
 
         builder.HasIndex(o => new { o.TenantId, o.Email });
+        builder.HasIndex(o => new { o.TenantId, o.FullName });
 
         builder.HasOne<Tenant>()
             .WithMany()
