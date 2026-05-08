@@ -1,4 +1,7 @@
 using System.Text;
+using Amazon;
+using Amazon.Runtime;
+using Amazon.SQS;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -6,11 +9,15 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using VetCare.Application.Abstractions.Identity;
+using VetCare.Application.Abstractions.Messaging;
 using VetCare.Application.Abstractions.MultiTenancy;
 using VetCare.Application.Abstractions.Persistence;
+using VetCare.Domain.Appointments;
 using VetCare.Domain.Owners;
 using VetCare.Domain.Pets;
+using VetCare.Domain.Vaccinations;
 using VetCare.Infrastructure.Identity;
+using VetCare.Infrastructure.Messaging;
 using VetCare.Infrastructure.MultiTenancy;
 using VetCare.Infrastructure.Persistence;
 using VetCare.Infrastructure.Persistence.Repositories;
@@ -33,6 +40,8 @@ public static class DependencyInjection
 
         services.AddScoped<IRepository<Owner>, OwnerRepository>();
         services.AddScoped<IRepository<Pet>, PetRepository>();
+        services.AddScoped<IRepository<Appointment>, AppointmentRepository>();
+        services.AddScoped<IRepository<Vaccination>, VaccinationRepository>();
 
         services.AddScoped<ITenantProvider, CurrentTenantProvider>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -47,6 +56,33 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
+
+        services.AddOptions<AwsOptions>()
+            .Bind(configuration.GetSection(AwsOptions.SectionName));
+
+        services.AddSingleton<IAmazonSQS>(sp =>
+        {
+            var aws = sp.GetRequiredService<IOptions<AwsOptions>>().Value;
+            var sqsConfig = new AmazonSQSConfig
+            {
+                RegionEndpoint = RegionEndpoint.GetBySystemName(aws.Region),
+            };
+
+            if (!string.IsNullOrWhiteSpace(aws.ServiceUrl))
+            {
+                sqsConfig.ServiceURL = aws.ServiceUrl;
+                sqsConfig.AuthenticationRegion = aws.Region;
+            }
+
+            if (!string.IsNullOrWhiteSpace(aws.AccessKey) && !string.IsNullOrWhiteSpace(aws.SecretKey))
+            {
+                return new AmazonSQSClient(new BasicAWSCredentials(aws.AccessKey, aws.SecretKey), sqsConfig);
+            }
+
+            return new AmazonSQSClient(sqsConfig);
+        });
+
+        services.AddSingleton<ISqsPublisher, SqsPublisher>();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer();

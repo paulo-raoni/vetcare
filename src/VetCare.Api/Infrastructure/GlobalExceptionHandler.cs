@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using VetCare.Application.Common.Exceptions;
+using VetCare.Domain.Primitives;
 
 namespace VetCare.Api.Infrastructure;
 
@@ -50,6 +51,25 @@ internal sealed class GlobalExceptionHandler : IExceptionHandler
                         Type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
                         Title = "Resource not found.",
                         Detail = notFound.Message,
+                    };
+
+                    return await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+                    {
+                        HttpContext = httpContext,
+                        ProblemDetails = problem,
+                        Exception = exception,
+                    });
+                }
+
+            case DomainException domain:
+                {
+                    httpContext.Response.StatusCode = StatusCodes.Status409Conflict;
+                    var problem = new ProblemDetails
+                    {
+                        Status = StatusCodes.Status409Conflict,
+                        Type = "https://tools.ietf.org/html/rfc7231#section-6.5.8",
+                        Title = "Domain rule violation.",
+                        Detail = domain.Message,
                     };
 
                     return await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
