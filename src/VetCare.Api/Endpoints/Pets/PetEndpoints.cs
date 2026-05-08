@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
+using VetCare.Api.Authorization;
 using VetCare.Application.Common.Pagination;
 using VetCare.Application.Pets;
 using VetCare.Application.Pets.Commands.CreatePet;
@@ -31,6 +32,7 @@ internal static class PetEndpoints
 
         group.MapGet("/", ListPets)
             .WithName("ListPets")
+            .RequireAuthorization(AuthorizationPolicies.AnyStaff)
             .Produces<PagedResult<PetDto>>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .WithOpenApi(op =>
@@ -42,6 +44,7 @@ internal static class PetEndpoints
 
         group.MapGet("/{id:guid}", GetPetById)
             .WithName("GetPetById")
+            .RequireAuthorization(AuthorizationPolicies.AnyStaff)
             .Produces<PetDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithOpenApi(op =>
@@ -53,6 +56,7 @@ internal static class PetEndpoints
 
         group.MapPost("/", CreatePet)
             .WithName("CreatePet")
+            .RequireAuthorization(AuthorizationPolicies.VetOrAdmin)
             .Produces<PetDto>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -66,6 +70,7 @@ internal static class PetEndpoints
 
         group.MapPut("/{id:guid}", UpdatePet)
             .WithName("UpdatePet")
+            .RequireAuthorization(AuthorizationPolicies.VetOrAdmin)
             .Produces<PetDto>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -78,6 +83,7 @@ internal static class PetEndpoints
 
         group.MapDelete("/{id:guid}", DeletePet)
             .WithName("DeletePet")
+            .RequireAuthorization(AuthorizationPolicies.VetOrAdmin)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithOpenApi(op =>
@@ -88,6 +94,7 @@ internal static class PetEndpoints
 
         group.MapPost("/{id:guid}/photo", UploadPetPhoto)
             .WithName("UploadPetPhoto")
+            .RequireAuthorization(AuthorizationPolicies.AnyStaff)
             .DisableAntiforgery()
             .Accepts<IFormFile>("multipart/form-data")
             .Produces<PetDto>(StatusCodes.Status200OK)
@@ -110,6 +117,10 @@ internal static class PetEndpoints
         "image/jpeg",
         "image/png",
     };
+
+    private static readonly byte[] JpegMagic = { 0xFF, 0xD8, 0xFF };
+
+    private static readonly byte[] PngMagic = { 0x89, 0x50, 0x4E, 0x47 };
 
     internal sealed record CreatePetRequest(
         Guid OwnerId,
@@ -217,10 +228,48 @@ internal static class PetEndpoints
         }
 
         await using var stream = file.OpenReadStream();
+
+        if (!await IsAllowedImageMagicAsync(stream, cancellationToken))
+        {
+            errors["file"] = new[] { "Invalid image file." };
+            return TypedResults.ValidationProblem(errors);
+        }
+
         var result = await sender.Send(
             new UploadPetPhotoCommand(id, file.FileName, stream, file.ContentType),
             cancellationToken);
         return TypedResults.Ok(result);
+    }
+
+    private static async Task<bool> IsAllowedImageMagicAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        var header = new byte[4];
+        var read = await stream.ReadAsync(header.AsMemory(0, 4), cancellationToken);
+        if (stream.CanSeek)
+        {
+            stream.Position = 0;
+        }
+
+        if (read < 3)
+        {
+            return false;
+        }
+
+        if (header[0] == JpegMagic[0] && header[1] == JpegMagic[1] && header[2] == JpegMagic[2])
+        {
+            return true;
+        }
+
+        if (read >= 4
+            && header[0] == PngMagic[0]
+            && header[1] == PngMagic[1]
+            && header[2] == PngMagic[2]
+            && header[3] == PngMagic[3])
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static OpenApiObject ExampleCreatePet() => new()

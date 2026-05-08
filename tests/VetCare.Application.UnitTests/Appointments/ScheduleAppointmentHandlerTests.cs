@@ -9,6 +9,7 @@ using VetCare.Application.Appointments.Commands.ScheduleAppointment;
 using VetCare.Application.Common.Exceptions;
 using VetCare.Domain.Appointments;
 using VetCare.Domain.Pets;
+using VetCare.Domain.Users;
 
 namespace VetCare.Application.UnitTests.Appointments;
 
@@ -16,6 +17,7 @@ public sealed class ScheduleAppointmentHandlerTests
 {
     private readonly IRepository<Appointment> _appointments = Substitute.For<IRepository<Appointment>>();
     private readonly IRepository<Pet> _pets = Substitute.For<IRepository<Pet>>();
+    private readonly IRepository<User> _users = Substitute.For<IRepository<User>>();
     private readonly IVetCareDbContext _db = Substitute.For<IVetCareDbContext>();
     private readonly ITenantProvider _tenant = Substitute.For<ITenantProvider>();
     private readonly IMapper _mapper = Substitute.For<IMapper>();
@@ -33,18 +35,28 @@ public sealed class ScheduleAppointmentHandlerTests
             });
     }
 
+    private ScheduleAppointmentCommandHandler CreateHandler()
+        => new(_appointments, _pets, _users, _db, _tenant, _mapper);
+
+    private static User CreateUser(Guid tenantId, UserRole role)
+        => new(tenantId, $"user-{Guid.NewGuid():N}@example.com", "hash", role);
+
     [Fact]
     public async Task Handle_schedules_appointment_and_raises_event()
     {
         var pet = new Pet(_tenantId, Guid.NewGuid(), "Rex", Species.Dog, "Lab", new DateOnly(2022, 1, 1));
+        var vet = CreateUser(_tenantId, UserRole.Vet);
+
         _pets.SingleOrDefaultAsync(Arg.Any<ISpecification<Pet>>(), Arg.Any<CancellationToken>())
             .Returns(pet);
+        _users.SingleOrDefaultAsync(Arg.Any<ISpecification<User>>(), Arg.Any<CancellationToken>())
+            .Returns(vet);
 
         var when = DateTime.UtcNow.AddDays(2);
-        var handler = new ScheduleAppointmentCommandHandler(_appointments, _pets, _db, _tenant, _mapper);
+        var handler = CreateHandler();
 
         var result = await handler.Handle(
-            new ScheduleAppointmentCommand(pet.Id, Guid.NewGuid(), when, "checkup"),
+            new ScheduleAppointmentCommand(pet.Id, vet.Id, when, "checkup"),
             CancellationToken.None);
 
         result.PetId.Should().Be(pet.Id);
@@ -54,6 +66,7 @@ public sealed class ScheduleAppointmentHandlerTests
         _appointments.Received(1).Add(Arg.Is<Appointment>(a =>
             a.PetId == pet.Id
             && a.TenantId == _tenantId
+            && a.VetUserId == vet.Id
             && a.DomainEvents.OfType<AppointmentScheduledEvent>().Any()));
         await _db.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -64,10 +77,71 @@ public sealed class ScheduleAppointmentHandlerTests
         _pets.SingleOrDefaultAsync(Arg.Any<ISpecification<Pet>>(), Arg.Any<CancellationToken>())
             .Returns((Pet?)null);
 
-        var handler = new ScheduleAppointmentCommandHandler(_appointments, _pets, _db, _tenant, _mapper);
+        var handler = CreateHandler();
 
         var act = async () => await handler.Handle(
             new ScheduleAppointmentCommand(Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow.AddDays(1), null),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+        _appointments.DidNotReceive().Add(Arg.Any<Appointment>());
+    }
+
+    [Fact]
+    public async Task Handle_throws_NotFound_when_vet_user_missing()
+    {
+        var pet = new Pet(_tenantId, Guid.NewGuid(), "Rex", Species.Dog, "Lab", new DateOnly(2022, 1, 1));
+        _pets.SingleOrDefaultAsync(Arg.Any<ISpecification<Pet>>(), Arg.Any<CancellationToken>())
+            .Returns(pet);
+        _users.SingleOrDefaultAsync(Arg.Any<ISpecification<User>>(), Arg.Any<CancellationToken>())
+            .Returns((User?)null);
+
+        var handler = CreateHandler();
+
+        var act = async () => await handler.Handle(
+            new ScheduleAppointmentCommand(pet.Id, Guid.NewGuid(), DateTime.UtcNow.AddDays(1), null),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+        _appointments.DidNotReceive().Add(Arg.Any<Appointment>());
+    }
+
+    [Fact]
+    public async Task Handle_throws_NotFound_when_vet_user_belongs_to_different_tenant()
+    {
+        var pet = new Pet(_tenantId, Guid.NewGuid(), "Rex", Species.Dog, "Lab", new DateOnly(2022, 1, 1));
+        var foreignVet = CreateUser(Guid.NewGuid(), UserRole.Vet);
+
+        _pets.SingleOrDefaultAsync(Arg.Any<ISpecification<Pet>>(), Arg.Any<CancellationToken>())
+            .Returns(pet);
+        _users.SingleOrDefaultAsync(Arg.Any<ISpecification<User>>(), Arg.Any<CancellationToken>())
+            .Returns(foreignVet);
+
+        var handler = CreateHandler();
+
+        var act = async () => await handler.Handle(
+            new ScheduleAppointmentCommand(pet.Id, foreignVet.Id, DateTime.UtcNow.AddDays(1), null),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+        _appointments.DidNotReceive().Add(Arg.Any<Appointment>());
+    }
+
+    [Fact]
+    public async Task Handle_throws_NotFound_when_user_role_is_not_vet()
+    {
+        var pet = new Pet(_tenantId, Guid.NewGuid(), "Rex", Species.Dog, "Lab", new DateOnly(2022, 1, 1));
+        var receptionist = CreateUser(_tenantId, UserRole.Receptionist);
+
+        _pets.SingleOrDefaultAsync(Arg.Any<ISpecification<Pet>>(), Arg.Any<CancellationToken>())
+            .Returns(pet);
+        _users.SingleOrDefaultAsync(Arg.Any<ISpecification<User>>(), Arg.Any<CancellationToken>())
+            .Returns(receptionist);
+
+        var handler = CreateHandler();
+
+        var act = async () => await handler.Handle(
+            new ScheduleAppointmentCommand(pet.Id, receptionist.Id, DateTime.UtcNow.AddDays(1), null),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<NotFoundException>();

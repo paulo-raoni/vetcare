@@ -141,4 +141,44 @@ public sealed class PetPhotoEndpointTests : IClassFixture<VetCareWebApplicationF
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
+
+    [Fact]
+    public async Task Upload_pet_photo_with_valid_png_magic_returns_200()
+    {
+        const string uploadedUrl = "http://localhost:4566/vetcare-pets-tests/pets/x/y.png";
+        _factory.StorageService.UploadAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(uploadedUrl);
+
+        var client = await AuthenticatedClient();
+        var pet = await CreatePet(client);
+
+        using var content = new MultipartFormDataContent();
+        var fileBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        var fileContent = new ByteArrayContent(fileBytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        content.Add(fileContent, "file", "rex.png");
+
+        var response = await client.PostAsync($"/api/v1/pets/{pet.Id}/photo", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = await response.Content.ReadFromJsonAsync<PetResponse>();
+        updated!.PhotoUrl.Should().Be(uploadedUrl);
+    }
+
+    [Fact]
+    public async Task Upload_pet_photo_with_pdf_bytes_but_image_jpeg_content_type_returns_400()
+    {
+        var client = await AuthenticatedClient();
+        var pet = await CreatePet(client);
+
+        using var content = new MultipartFormDataContent();
+        var pdfBytes = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34 };
+        var fileContent = new ByteArrayContent(pdfBytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        content.Add(fileContent, "file", "spoof.jpg");
+
+        var response = await client.PostAsync($"/api/v1/pets/{pet.Id}/photo", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 }

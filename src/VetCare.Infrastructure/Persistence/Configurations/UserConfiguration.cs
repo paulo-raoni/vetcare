@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using VetCare.Domain.Tenants;
 using VetCare.Domain.Users;
 
 namespace VetCare.Infrastructure.Persistence.Configurations;
@@ -26,6 +27,11 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.UpdatedAt).IsRequired();
 
         builder.HasIndex(u => new { u.TenantId, u.Email }).IsUnique();
+
+        builder.HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(u => u.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Ignore(u => u.DomainEvents);
     }

@@ -4,8 +4,10 @@ using VetCare.Application.Abstractions.MultiTenancy;
 using VetCare.Application.Abstractions.Persistence;
 using VetCare.Application.Common.Exceptions;
 using VetCare.Application.Pets.Specifications;
+using VetCare.Application.Users.Specifications;
 using VetCare.Domain.Appointments;
 using VetCare.Domain.Pets;
+using VetCare.Domain.Users;
 
 namespace VetCare.Application.Appointments.Commands.ScheduleAppointment;
 
@@ -13,6 +15,7 @@ public sealed class ScheduleAppointmentCommandHandler : IRequestHandler<Schedule
 {
     private readonly IRepository<Appointment> _appointments;
     private readonly IRepository<Pet> _pets;
+    private readonly IRepository<User> _users;
     private readonly IVetCareDbContext _db;
     private readonly ITenantProvider _tenantProvider;
     private readonly IMapper _mapper;
@@ -20,12 +23,14 @@ public sealed class ScheduleAppointmentCommandHandler : IRequestHandler<Schedule
     public ScheduleAppointmentCommandHandler(
         IRepository<Appointment> appointments,
         IRepository<Pet> pets,
+        IRepository<User> users,
         IVetCareDbContext db,
         ITenantProvider tenantProvider,
         IMapper mapper)
     {
         _appointments = appointments;
         _pets = pets;
+        _users = users;
         _db = db;
         _tenantProvider = tenantProvider;
         _mapper = mapper;
@@ -40,6 +45,14 @@ public sealed class ScheduleAppointmentCommandHandler : IRequestHandler<Schedule
 
         var pet = await _pets.SingleOrDefaultAsync(new PetByIdSpec(request.PetId), cancellationToken)
             ?? throw new NotFoundException(nameof(Pet), request.PetId);
+
+        var vet = await _users.SingleOrDefaultAsync(new UserByIdSpec(request.VetUserId), cancellationToken)
+            ?? throw new NotFoundException(nameof(User), request.VetUserId);
+
+        if (vet.TenantId != _tenantProvider.TenantId || vet.Role != UserRole.Vet)
+        {
+            throw new NotFoundException(nameof(User), request.VetUserId);
+        }
 
         var appointment = new Appointment(
             _tenantProvider.TenantId,

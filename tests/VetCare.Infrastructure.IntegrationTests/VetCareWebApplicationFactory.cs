@@ -8,8 +8,10 @@ using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 using NSubstitute;
 using VetCare.Application.Abstractions.Auditing;
+using VetCare.Application.Abstractions.Identity;
 using VetCare.Application.Abstractions.Messaging;
 using VetCare.Application.Abstractions.Storage;
+using VetCare.Domain.Users;
 using VetCare.Infrastructure.Persistence;
 
 namespace VetCare.Infrastructure.IntegrationTests;
@@ -93,5 +95,27 @@ public sealed class VetCareWebApplicationFactory : WebApplicationFactory<Program
         }
 
         services.AddSingleton(serviceType, instance);
+    }
+
+    public async Task<Guid> CreateUserAsync(Guid tenantId, UserRole role, string? email = null)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<VetCareDbContext>();
+        var user = new User(tenantId, email ?? $"user-{Guid.NewGuid():N}@vetcare.test", "hash", role);
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        return user.Id;
+    }
+
+    public async Task<(Guid UserId, string AccessToken)> CreateUserAndIssueTokenAsync(Guid tenantId, UserRole role)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<VetCareDbContext>();
+        var tokens = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
+        var user = new User(tenantId, $"user-{Guid.NewGuid():N}@vetcare.test", "hash", role);
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var token = tokens.Generate(user);
+        return (user.Id, token.Token);
     }
 }

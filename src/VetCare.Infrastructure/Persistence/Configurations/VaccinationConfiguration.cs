@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using VetCare.Domain.Pets;
 using VetCare.Domain.Vaccinations;
 
 namespace VetCare.Infrastructure.Persistence.Configurations;
@@ -26,6 +27,11 @@ public sealed class VaccinationConfiguration : IEntityTypeConfiguration<Vaccinat
         builder.Property(v => v.UpdatedAt).IsRequired();
 
         builder.HasIndex(v => new { v.TenantId, v.PetId });
+
+        builder.HasOne<Pet>()
+            .WithMany()
+            .HasForeignKey(v => v.PetId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Ignore(v => v.DomainEvents);
     }

@@ -1,6 +1,7 @@
 using System.Reflection;
 using Asp.Versioning;
 using Microsoft.OpenApi.Models;
+using VetCare.Api.Authorization;
 using VetCare.Api.Endpoints.Appointments;
 using VetCare.Api.Endpoints.Auth;
 using VetCare.Api.Endpoints.Owners;
@@ -9,6 +10,7 @@ using VetCare.Api.Endpoints.Vaccinations;
 using VetCare.Api.Infrastructure;
 using VetCare.Application;
 using VetCare.Infrastructure;
+using VetCare.Domain.Users;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +18,14 @@ builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(AuthorizationPolicies.AdminOnly, policy =>
+        policy.RequireRole(nameof(UserRole.Admin)))
+    .AddPolicy(AuthorizationPolicies.VetOrAdmin, policy =>
+        policy.RequireRole(nameof(UserRole.Vet), nameof(UserRole.Admin)))
+    .AddPolicy(AuthorizationPolicies.AnyStaff, policy =>
+        policy.RequireRole(nameof(UserRole.Admin), nameof(UserRole.Vet), nameof(UserRole.Receptionist)));
 
 builder.Services.AddApiVersioning(options =>
 {
