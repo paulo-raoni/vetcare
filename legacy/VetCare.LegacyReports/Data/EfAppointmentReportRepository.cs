@@ -24,10 +24,12 @@ INNER JOIN vetcare.owners o ON o.""Id"" = p.""OwnerId""
 INNER JOIN vetcare.users  u ON u.""Id"" = a.""VetUserId""
 LEFT  JOIN vetcare.vaccinations v
        ON v.""PetId"" = a.""PetId""
-      AND date_trunc('day', v.""AdministeredAt"") = date_trunc('day', a.""ScheduledAt"")
+      AND v.""TenantId"" = @tenantId
+      AND DATE(v.""AdministeredAt"") = DATE(a.""ScheduledAt"")
 WHERE a.""TenantId"" = @tenantId
   AND p.""TenantId"" = @tenantId
   AND o.""TenantId"" = @tenantId
+  AND u.""TenantId"" = @tenantId
   AND EXTRACT(YEAR  FROM a.""ScheduledAt"") = @year
   AND EXTRACT(MONTH FROM a.""ScheduledAt"") = @month
 ORDER BY a.""ScheduledAt"";";

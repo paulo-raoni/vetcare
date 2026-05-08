@@ -24,7 +24,15 @@ namespace VetCare.LegacyReports.Tests
 
             var sql = (string)sqlField.GetRawConstantValue();
             sql.Should().Contain("a.\"TenantId\" = @tenantId",
-                "every query must be scoped to the supplied tenant");
+                "appointments must be scoped to the supplied tenant");
+            sql.Should().Contain("p.\"TenantId\" = @tenantId",
+                "pets must be scoped to the supplied tenant");
+            sql.Should().Contain("o.\"TenantId\" = @tenantId",
+                "owners must be scoped to the supplied tenant");
+            sql.Should().Contain("u.\"TenantId\" = @tenantId",
+                "users must be scoped to the supplied tenant");
+            sql.Should().Contain("v.\"TenantId\" = @tenantId",
+                "vaccinations must be scoped to the supplied tenant on the LEFT JOIN condition");
             sql.Should().Contain("@year");
             sql.Should().Contain("@month");
         }
