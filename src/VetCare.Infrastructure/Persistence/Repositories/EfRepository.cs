@@ -19,15 +19,18 @@ public abstract class EfRepository<T> : IRepository<T>
     public Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         => Set.FindAsync(new object[] { id }, cancellationToken).AsTask();
 
+    public Task<T?> GetByIdAsyncNoTracking(Guid id, CancellationToken cancellationToken = default)
+        => Set.AsNoTracking().FirstOrDefaultAsync(e => EF.Property<Guid>(e, "Id") == id, cancellationToken);
+
     public Task<T?> SingleOrDefaultAsync(ISpecification<T> specification, CancellationToken cancellationToken = default)
         => SpecificationEvaluator<T>.ApplySpecification(Set, specification).FirstOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyList<T>> ListAsync(ISpecification<T> specification, CancellationToken cancellationToken = default)
-        => await SpecificationEvaluator<T>.ApplySpecification(Set, specification).ToListAsync(cancellationToken);
+        => await SpecificationEvaluator<T>.ApplySpecification(Set.AsNoTracking(), specification).ToListAsync(cancellationToken);
 
     public Task<int> CountAsync(ISpecification<T> specification, CancellationToken cancellationToken = default)
     {
-        IQueryable<T> query = Set;
+        IQueryable<T> query = Set.AsNoTracking();
         if (specification.Criteria is not null)
         {
             query = query.Where(specification.Criteria);

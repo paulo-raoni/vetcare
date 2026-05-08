@@ -2,7 +2,6 @@ using MapsterMapper;
 using MediatR;
 using VetCare.Application.Abstractions.Persistence;
 using VetCare.Application.Common.Exceptions;
-using VetCare.Application.Owners.Specifications;
 using VetCare.Domain.Owners;
 
 namespace VetCare.Application.Owners.Queries.GetOwnerById;
@@ -20,7 +19,7 @@ public sealed class GetOwnerByIdQueryHandler : IRequestHandler<GetOwnerByIdQuery
 
     public async Task<OwnerDto> Handle(GetOwnerByIdQuery request, CancellationToken cancellationToken)
     {
-        var owner = await _owners.SingleOrDefaultAsync(new OwnerByIdSpec(request.Id), cancellationToken)
+        var owner = await _owners.GetByIdAsyncNoTracking(request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Owner), request.Id);
 
         return _mapper.Map<OwnerDto>(owner);

@@ -27,6 +27,7 @@ public sealed class VaccinationConfiguration : IEntityTypeConfiguration<Vaccinat
         builder.Property(v => v.UpdatedAt).IsRequired();
 
         builder.HasIndex(v => new { v.TenantId, v.PetId });
+        builder.HasIndex(v => new { v.TenantId, v.AdministeredAt });
 
         builder.HasOne<Pet>()
             .WithMany()

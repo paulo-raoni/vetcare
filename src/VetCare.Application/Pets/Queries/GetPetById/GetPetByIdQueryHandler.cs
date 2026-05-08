@@ -2,7 +2,6 @@ using MapsterMapper;
 using MediatR;
 using VetCare.Application.Abstractions.Persistence;
 using VetCare.Application.Common.Exceptions;
-using VetCare.Application.Pets.Specifications;
 using VetCare.Domain.Pets;
 
 namespace VetCare.Application.Pets.Queries.GetPetById;
@@ -20,7 +19,7 @@ public sealed class GetPetByIdQueryHandler : IRequestHandler<GetPetByIdQuery, Pe
 
     public async Task<PetDto> Handle(GetPetByIdQuery request, CancellationToken cancellationToken)
     {
-        var pet = await _pets.SingleOrDefaultAsync(new PetByIdSpec(request.Id), cancellationToken)
+        var pet = await _pets.GetByIdAsyncNoTracking(request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Pet), request.Id);
 
         return _mapper.Map<PetDto>(pet);

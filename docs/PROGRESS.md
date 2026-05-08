@@ -1,5 +1,17 @@
 # VetCare — Progress
 
+## fix/quality — M0–M5 review fallout (in delivery)
+
+- **Read queries no longer track entities.** `EfRepository.ListAsync` and `EfRepository.CountAsync` apply `Set.AsNoTracking()` before evaluating the spec; `GetByIdAsync` (used by command handlers) stays tracked.
+- **New `IRepository<T>.GetByIdAsyncNoTracking` variant.** Implemented in `EfRepository` via `Set.AsNoTracking().FirstOrDefaultAsync(e => EF.Property<Guid>(e, "Id") == id)`; tenant global query filters still apply, so multi-tenant isolation is preserved.
+- **All four `GetById` query handlers switched to no-tracking.** `GetOwnerByIdQueryHandler`, `GetPetByIdQueryHandler`, `GetAppointmentByIdQueryHandler`, `GetVaccinationByIdQueryHandler` now call `GetByIdAsyncNoTracking(request.Id)` instead of `SingleOrDefaultAsync(new ...ByIdSpec(...))`. The spec classes remain in use by command handlers (CreatePet, DeleteOwner, UpdatePet, ScheduleAppointment, etc.) where tracking is required.
+- **List query handlers automatically benefit.** `ListOwners`, `ListPets`, `ListAppointments`, `ListVaccinations` reuse `IRepository.ListAsync`/`CountAsync`, which now run `AsNoTracking` end-to-end.
+- **Composite indexes added to four EF configurations.** `AppointmentConfiguration` gains `(TenantId, Status)`; `VaccinationConfiguration` gains `(TenantId, AdministeredAt)`; `OwnerConfiguration` gains `(TenantId, FullName)`; `PetConfiguration` gains `(TenantId, Name)`. Existing `(TenantId, PetId)` / `(TenantId, ScheduledAt)` / `(TenantId, OwnerId)` / `(TenantId, Email)` indexes were already in place from earlier milestones.
+- **Migration `20260508193805_AddCompositeIndexes`.** Generated via `dotnet ef migrations add` against `src/VetCare.Infrastructure`; creates the four new indexes in the `vetcare` schema with matching `Down` drops; designer + snapshot updated.
+- **Dockerfile hardened.** Final stage now installs `curl`, creates a non-root `appuser` (`adduser --disabled-password --gecos ""`), `chown`s `/app`, copies the published payload with `--chown=appuser:appuser`, switches to `USER appuser` before `ENTRYPOINT`, and adds `HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -f http://localhost:8080/health || exit 1`.
+- **Governance docs created.** `docs/DECISIONS.md` adds eight ADRs covering Clean Architecture, MediatR + CQRS, multi-tenant query filters, MongoDB audit, S3 photo storage, SQS events, JWT + BCrypt auth, and the Specification pattern. `docs/BACKLOG.md` lists the seven deferred improvements from the review (Testcontainers, outbox, rate limiting, AdminOnly endpoints, exhaustive 403 coverage, stable domain-event metadata, removing EF symbols from Application).
+- Gates: `make build` — 0/0; `make test` — 88 passing (Domain 27, Application 35, Integration 26); `make lint` — clean.
+
 ## fix/security-integrity — M0–M5 review fallout (in delivery)
 
 - **Foreign keys + `Restrict` delete behavior added across all relational tables.** `PetConfiguration` / `OwnerConfiguration` / `UserConfiguration` / `AppointmentConfiguration` / `VaccinationConfiguration` declare explicit `HasOne<T>().WithMany().HasForeignKey(...)` relationships for `Pet → Owner`, `Pet/Owner/User → Tenant`, `Appointment → Pet`, `Appointment → User (VetUserId)`, `Vaccination → Pet`. Generated migration `20260508190409_AddForeignKeyConstraints` adds the seven FKs plus supporting indexes (`IX_pets_OwnerId`, `IX_appointments_PetId`, `IX_appointments_VetUserId`, `IX_vaccinations_PetId`).

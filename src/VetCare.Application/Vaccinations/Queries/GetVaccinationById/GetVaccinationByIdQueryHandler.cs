@@ -2,7 +2,6 @@ using MapsterMapper;
 using MediatR;
 using VetCare.Application.Abstractions.Persistence;
 using VetCare.Application.Common.Exceptions;
-using VetCare.Application.Vaccinations.Specifications;
 using VetCare.Domain.Vaccinations;
 
 namespace VetCare.Application.Vaccinations.Queries.GetVaccinationById;
@@ -20,7 +19,7 @@ public sealed class GetVaccinationByIdQueryHandler : IRequestHandler<GetVaccinat
 
     public async Task<VaccinationDto> Handle(GetVaccinationByIdQuery request, CancellationToken cancellationToken)
     {
-        var vaccination = await _vaccinations.SingleOrDefaultAsync(new VaccinationByIdSpec(request.Id), cancellationToken)
+        var vaccination = await _vaccinations.GetByIdAsyncNoTracking(request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Vaccination), request.Id);
 
         return _mapper.Map<VaccinationDto>(vaccination);

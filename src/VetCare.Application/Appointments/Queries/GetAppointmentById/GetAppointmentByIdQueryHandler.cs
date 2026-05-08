@@ -1,7 +1,6 @@
 using MapsterMapper;
 using MediatR;
 using VetCare.Application.Abstractions.Persistence;
-using VetCare.Application.Appointments.Specifications;
 using VetCare.Application.Common.Exceptions;
 using VetCare.Domain.Appointments;
 
@@ -20,7 +19,7 @@ public sealed class GetAppointmentByIdQueryHandler : IRequestHandler<GetAppointm
 
     public async Task<AppointmentDto> Handle(GetAppointmentByIdQuery request, CancellationToken cancellationToken)
     {
-        var appointment = await _appointments.SingleOrDefaultAsync(new AppointmentByIdSpec(request.Id), cancellationToken)
+        var appointment = await _appointments.GetByIdAsyncNoTracking(request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Appointment), request.Id);
 
         return _mapper.Map<AppointmentDto>(appointment);
