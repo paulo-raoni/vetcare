@@ -26,6 +26,8 @@ LEFT  JOIN vetcare.vaccinations v
        ON v.""PetId"" = a.""PetId""
       AND date_trunc('day', v.""AdministeredAt"") = date_trunc('day', a.""ScheduledAt"")
 WHERE a.""TenantId"" = @tenantId
+  AND p.""TenantId"" = @tenantId
+  AND o.""TenantId"" = @tenantId
   AND EXTRACT(YEAR  FROM a.""ScheduledAt"") = @year
   AND EXTRACT(MONTH FROM a.""ScheduledAt"") = @month
 ORDER BY a.""ScheduledAt"";";
