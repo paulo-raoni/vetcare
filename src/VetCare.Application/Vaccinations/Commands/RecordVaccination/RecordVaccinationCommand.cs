@@ -1,4 +1,5 @@
 using MediatR;
+using VetCare.Application.Abstractions.Messaging;
 
 namespace VetCare.Application.Vaccinations.Commands.RecordVaccination;
 
@@ -7,4 +8,4 @@ public sealed record RecordVaccinationCommand(
     string VaccineName,
     DateTime AdministeredAt,
     DateTime? NextDueAt,
-    string BatchNumber) : IRequest<VaccinationDto>;
+    string BatchNumber) : IRequest<VaccinationDto>, ICommand;

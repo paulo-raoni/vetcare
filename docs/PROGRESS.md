@@ -1,5 +1,27 @@
 # VetCare — Progress
 
+## M4 — Audit log (MongoDB) + S3 photo upload (in delivery)
+
+- New `ICommand` marker (`Application.Abstractions.Messaging`) applied to all state-mutating MediatR requests (Owner / Pet / Appointment / Vaccination commands + new `UploadPetPhotoCommand`); queries deliberately do not implement it. Auth `Login` / `Register` are excluded so credentials never reach the audit payload.
+- `AuditEntry` record (`Id`, `TenantId?`, `UserId?`, `Action`, `EntityType?`, `EntityId?`, `Payload`, `OccurredAt`) and `IAuditRepository` abstraction live in Application; `MongoAuditRepository` (Infrastructure) inserts into MongoDB via `IMongoCollection<BsonDocument>`, payload serialized through `System.Text.Json` then `BsonDocument.Parse`.
+- `AuditBehavior<TRequest,TResponse>` runs after the handler succeeds, gates on `request is ICommand`, captures `TenantId` / `UserId` from `ICurrentUserService`, sets `Action = typeof(TRequest).Name`, attaches the request as `Payload`, swallows audit-store failures with a warning. Registered AFTER `ValidationBehavior` in `Application/DependencyInjection.cs`.
+- New `MongoDbOptions` (`ConnectionString`, `DatabaseName`, `AuditCollectionName`) bound to `Mongo` config section; `IMongoClient` / `IMongoDatabase` / `IAuditRepository` registered in `Infrastructure/DependencyInjection.cs`. `appsettings.Development.json` adds the `Mongo` section (`mongodb://vetcare:vetcare@localhost:27017`, db `vetcare`, collection `audit_log`).
+- `IStorageService` abstraction in Application; `S3StorageService` (Infrastructure) wraps `IAmazonS3.PutObjectAsync`, returns a path-style public URL (`{ServiceUrl}/{Bucket}/{key}` for LocalStack, `https://{Bucket}.s3.amazonaws.com/{key}` otherwise). `S3Options` (`BucketName`, `ServiceUrl`) bound to the `S3` section; `IAmazonS3` client uses `AwsOptions` for credentials/region with `ForcePathStyle` when a `ServiceUrl` is configured.
+- `UploadPetPhotoCommand(PetId, FileName, Content (Stream — `[JsonIgnore]`), ContentType)` + handler loads the pet via `PetByIdSpec`, generates a key `pets/{tenantId}/{petId}/{guid}{ext}`, uploads via `IStorageService`, calls `Pet.UpdatePhoto(url)` and persists.
+- New endpoint `POST /api/v1/pets/{id}/photo` accepts `multipart/form-data` (`IFormFile file`), `RequireAuthorization()`, `DisableAntiforgery()`, validates `Length ≤ 5 MB` and content type `image/jpeg` / `image/png`, returns `Ok<PetDto>` or `ValidationProblem`; documented via Swagger.
+- New packages pinned in `Directory.Packages.props`: `MongoDB.Driver` 2.30.0, `AWSSDK.S3` 3.7.400.5; both referenced by `VetCare.Infrastructure.csproj`.
+
+### Tests added
+
+- Application unit tests: `AuditBehaviorTests` (audits a command after success, skips queries, does not audit when handler throws) and `UploadPetPhotoHandlerTests` (calls `IStorageService.UploadAsync` with the tenant/pet-scoped key, mutates `Pet.PhotoUrl`, throws `NotFoundException` when the pet is missing). Application unit count is 18 → handler/behavior coverage now drives 30 total Application tests.
+- Integration tests: `PetPhotoEndpointTests` posts a multipart `image/jpeg` and asserts `200` + returned `PhotoUrl`, `400` on a >5 MB body, `400` on `application/pdf`. `VetCareWebApplicationFactory` now substitutes `IAmazonS3`, `IStorageService`, `IMongoClient`, `IMongoDatabase`, and `IAuditRepository`, and asserts that `IAuditRepository.SaveAsync` is invoked for the upload command (`Action == "UploadPetPhotoCommand"`).
+
+### Gates
+
+- `make build` — 0 warnings, 0 errors.
+- `make test` — 78 passing (Domain 27, Application 30, Integration 21).
+- `make lint` — clean.
+
 ## M3 — Appointments + Vaccinations (in delivery)
 
 - `Appointment` aggregate with `Scheduled → Confirmed → Completed` / `Cancelled` state machine, `DomainException`-backed transition guards, `Notes` ≤ 1000 chars, future-only `ScheduledAt`; raises `AppointmentScheduledEvent`, `AppointmentCancelledEvent`, `AppointmentCompletedEvent`.

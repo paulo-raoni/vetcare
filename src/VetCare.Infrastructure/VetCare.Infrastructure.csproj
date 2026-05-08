@@ -22,7 +22,9 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
     <PackageReference Include="BCrypt.Net-Next" />
     <PackageReference Include="AWSSDK.SQS" />
+    <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" />
+    <PackageReference Include="MongoDB.Driver" />
   </ItemGroup>
 
   <ItemGroup>

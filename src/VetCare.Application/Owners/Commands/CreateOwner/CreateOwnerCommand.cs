@@ -1,8 +1,9 @@
 using MediatR;
+using VetCare.Application.Abstractions.Messaging;
 
 namespace VetCare.Application.Owners.Commands.CreateOwner;
 
 public sealed record CreateOwnerCommand(
     string FullName,
     string Phone,
-    string Email) : IRequest<OwnerDto>;
+    string Email) : IRequest<OwnerDto>, ICommand;
