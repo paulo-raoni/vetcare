@@ -8,6 +8,22 @@ Multi-tenant SaaS for veterinary clinics — tutors, pets, appointments, vaccina
 
 ---
 
+## Table of contents
+
+1. [Overview](#1-overview)
+2. [Architecture](#2-architecture)
+3. [Project structure](#3-project-structure)
+4. [Tech stack](#4-tech-stack)
+5. [Getting started](#5-getting-started)
+6. [API reference](#6-api-reference)
+7. [Key design decisions](#7-key-design-decisions)
+8. [Legacy module](#8-legacy-module)
+9. [CI/CD](#9-cicd)
+10. [Backlog](#10-backlog)
+11. [License](#11-license)
+
+---
+
 ## 1. Overview
 
 VetCare models the day-to-day workflow of a veterinary clinic — registering tutors, their pets, scheduling appointments with veterinarians, and recording vaccinations — across **multiple tenants** sharing the same deployment. It is a portfolio project, not a production product: every milestone is built to surface the decisions a mid-to-senior engineer makes in a real .NET / pet-health SaaS.
@@ -318,7 +334,7 @@ make test       # dotnet test VetCare.sln
 make lint       # dotnet format VetCare.sln --verify-no-changes
 ```
 
-A delivery where any gate fails is not a delivery. Per-PR-type gate policy is documented in [`CLAUDE.md`](./CLAUDE.md#7-ci-gates--non-negotiable).
+A delivery where any gate fails is not a delivery. Every PR must pass all three gates before merge.
 
 ---
 
