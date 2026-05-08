@@ -23,7 +23,11 @@
 
     <!-- AWS -->
     <PackageVersion Include="AWSSDK.SQS" Version="3.7.400.46" />
+    <PackageVersion Include="AWSSDK.S3" Version="3.7.400.5" />
     <PackageVersion Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.301" />
+
+    <!-- MongoDB -->
+    <PackageVersion Include="MongoDB.Driver" Version="2.30.0" />
 
     <!-- Mediator -->
     <PackageVersion Include="MediatR" Version="12.4.1" />

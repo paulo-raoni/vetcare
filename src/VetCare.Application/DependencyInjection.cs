@@ -18,6 +18,7 @@ public static class DependencyInjection
         {
             cfg.RegisterServicesFromAssembly(assembly);
             cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+            cfg.AddOpenBehavior(typeof(AuditBehavior<,>));
         });
 
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);

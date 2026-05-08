@@ -11,6 +11,7 @@ using VetCare.Application.Pets;
 using VetCare.Application.Pets.Commands.CreatePet;
 using VetCare.Application.Pets.Commands.DeletePet;
 using VetCare.Application.Pets.Commands.UpdatePet;
+using VetCare.Application.Pets.Commands.UploadPetPhoto;
 using VetCare.Application.Pets.Queries.GetPetById;
 using VetCare.Application.Pets.Queries.ListPets;
 using VetCare.Domain.Pets;
@@ -85,8 +86,30 @@ internal static class PetEndpoints
                 return op;
             });
 
+        group.MapPost("/{id:guid}/photo", UploadPetPhoto)
+            .WithName("UploadPetPhoto")
+            .DisableAntiforgery()
+            .Accepts<IFormFile>("multipart/form-data")
+            .Produces<PetDto>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithOpenApi(op =>
+            {
+                op.Summary = "Upload a pet photo";
+                op.Description = "Accepts multipart/form-data with a single 'file' field. Max size: 5MB. Allowed types: image/jpeg, image/png.";
+                return op;
+            });
+
         return app;
     }
+
+    private const long MaxPhotoBytes = 5 * 1024 * 1024;
+
+    private static readonly string[] AllowedPhotoContentTypes =
+    {
+        "image/jpeg",
+        "image/png",
+    };
 
     internal sealed record CreatePetRequest(
         Guid OwnerId,
@@ -165,6 +188,39 @@ internal static class PetEndpoints
     {
         await sender.Send(new DeletePetCommand(id), cancellationToken);
         return TypedResults.NoContent();
+    }
+
+    private static async Task<Results<Ok<PetDto>, ValidationProblem>> UploadPetPhoto(
+        Guid id,
+        IFormFile file,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var errors = new Dictionary<string, string[]>();
+
+        if (file is null || file.Length == 0)
+        {
+            errors["file"] = new[] { "A non-empty file is required." };
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        if (file.Length > MaxPhotoBytes)
+        {
+            errors["file"] = new[] { $"File exceeds maximum allowed size of {MaxPhotoBytes} bytes." };
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        if (!AllowedPhotoContentTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
+        {
+            errors["file"] = new[] { "Only image/jpeg or image/png content types are allowed." };
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        await using var stream = file.OpenReadStream();
+        var result = await sender.Send(
+            new UploadPetPhotoCommand(id, file.FileName, stream, file.ContentType),
+            cancellationToken);
+        return TypedResults.Ok(result);
     }
 
     private static OpenApiObject ExampleCreatePet() => new()
