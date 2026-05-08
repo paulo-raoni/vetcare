@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
+using VetCare.Api.Authorization;
 using VetCare.Application.Appointments;
 using VetCare.Application.Appointments.Commands.CancelAppointment;
 using VetCare.Application.Appointments.Commands.CompleteAppointment;
@@ -31,6 +32,7 @@ internal static class AppointmentEndpoints
 
         group.MapGet("/", ListAppointments)
             .WithName("ListAppointments")
+            .RequireAuthorization(AuthorizationPolicies.AnyStaff)
             .Produces<PagedResult<AppointmentDto>>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .WithOpenApi(op =>
@@ -42,6 +44,7 @@ internal static class AppointmentEndpoints
 
         group.MapGet("/{id:guid}", GetAppointmentById)
             .WithName("GetAppointmentById")
+            .RequireAuthorization(AuthorizationPolicies.AnyStaff)
             .Produces<AppointmentDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithOpenApi(op =>
@@ -53,6 +56,7 @@ internal static class AppointmentEndpoints
 
         group.MapPost("/", ScheduleAppointment)
             .WithName("ScheduleAppointment")
+            .RequireAuthorization(AuthorizationPolicies.AnyStaff)
             .Produces<AppointmentDto>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -66,6 +70,7 @@ internal static class AppointmentEndpoints
 
         group.MapPut("/{id:guid}/confirm", ConfirmAppointment)
             .WithName("ConfirmAppointment")
+            .RequireAuthorization(AuthorizationPolicies.VetOrAdmin)
             .Produces<AppointmentDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
@@ -77,6 +82,7 @@ internal static class AppointmentEndpoints
 
         group.MapPut("/{id:guid}/cancel", CancelAppointment)
             .WithName("CancelAppointment")
+            .RequireAuthorization(AuthorizationPolicies.AnyStaff)
             .Produces<AppointmentDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
@@ -88,6 +94,7 @@ internal static class AppointmentEndpoints
 
         group.MapPut("/{id:guid}/complete", CompleteAppointment)
             .WithName("CompleteAppointment")
+            .RequireAuthorization(AuthorizationPolicies.VetOrAdmin)
             .Produces<AppointmentDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)

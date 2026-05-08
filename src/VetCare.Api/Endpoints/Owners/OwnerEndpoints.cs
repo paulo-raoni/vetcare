@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
+using VetCare.Api.Authorization;
 using VetCare.Application.Common.Pagination;
 using VetCare.Application.Owners;
 using VetCare.Application.Owners.Commands.CreateOwner;
@@ -29,6 +30,7 @@ internal static class OwnerEndpoints
 
         group.MapGet("/", ListOwners)
             .WithName("ListOwners")
+            .RequireAuthorization(AuthorizationPolicies.AnyStaff)
             .Produces<PagedResult<OwnerDto>>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .WithOpenApi(op =>
@@ -40,6 +42,7 @@ internal static class OwnerEndpoints
 
         group.MapGet("/{id:guid}", GetOwnerById)
             .WithName("GetOwnerById")
+            .RequireAuthorization(AuthorizationPolicies.AnyStaff)
             .Produces<OwnerDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithOpenApi(op =>
@@ -51,6 +54,7 @@ internal static class OwnerEndpoints
 
         group.MapPost("/", CreateOwner)
             .WithName("CreateOwner")
+            .RequireAuthorization(AuthorizationPolicies.VetOrAdmin)
             .Produces<OwnerDto>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .WithOpenApi(op =>
@@ -63,6 +67,7 @@ internal static class OwnerEndpoints
 
         group.MapPut("/{id:guid}", UpdateOwner)
             .WithName("UpdateOwner")
+            .RequireAuthorization(AuthorizationPolicies.VetOrAdmin)
             .Produces<OwnerDto>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -75,6 +80,7 @@ internal static class OwnerEndpoints
 
         group.MapDelete("/{id:guid}", DeleteOwner)
             .WithName("DeleteOwner")
+            .RequireAuthorization(AuthorizationPolicies.VetOrAdmin)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithOpenApi(op =>

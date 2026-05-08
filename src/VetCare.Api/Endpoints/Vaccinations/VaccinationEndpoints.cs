@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
+using VetCare.Api.Authorization;
 using VetCare.Application.Common.Pagination;
 using VetCare.Application.Vaccinations;
 using VetCare.Application.Vaccinations.Commands.RecordVaccination;
@@ -28,6 +29,7 @@ internal static class VaccinationEndpoints
 
         group.MapGet("/", ListVaccinations)
             .WithName("ListVaccinations")
+            .RequireAuthorization(AuthorizationPolicies.AnyStaff)
             .Produces<PagedResult<VaccinationDto>>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .WithOpenApi(op =>
@@ -39,6 +41,7 @@ internal static class VaccinationEndpoints
 
         group.MapGet("/{id:guid}", GetVaccinationById)
             .WithName("GetVaccinationById")
+            .RequireAuthorization(AuthorizationPolicies.AnyStaff)
             .Produces<VaccinationDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithOpenApi(op =>
@@ -50,6 +53,7 @@ internal static class VaccinationEndpoints
 
         group.MapPost("/", RecordVaccination)
             .WithName("RecordVaccination")
+            .RequireAuthorization(AuthorizationPolicies.VetOrAdmin)
             .Produces<VaccinationDto>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -63,6 +67,7 @@ internal static class VaccinationEndpoints
 
         group.MapPut("/{id:guid}", UpdateVaccination)
             .WithName("UpdateVaccination")
+            .RequireAuthorization(AuthorizationPolicies.VetOrAdmin)
             .Produces<VaccinationDto>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound)

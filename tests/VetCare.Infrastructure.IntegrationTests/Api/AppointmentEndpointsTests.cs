@@ -7,6 +7,7 @@ using VetCare.Application.Abstractions.Messaging;
 using VetCare.Application.Appointments.Events;
 using VetCare.Domain.Appointments;
 using VetCare.Domain.Pets;
+using VetCare.Domain.Users;
 
 namespace VetCare.Infrastructure.IntegrationTests.Api;
 
@@ -112,12 +113,13 @@ public sealed class AppointmentEndpointsTests : IClassFixture<VetCareWebApplicat
         var (client, auth) = await AuthenticatedClient();
         var owner = await CreateOwner(client);
         var pet = await CreatePet(client, owner.Id);
+        var vetUserId = await _factory.CreateUserAsync(auth.TenantId, UserRole.Vet);
 
         var scheduledAt = DateTime.UtcNow.AddDays(2);
         var scheduleResponse = await client.PostAsJsonAsync("/api/v1/appointments", new
         {
             petId = pet.Id,
-            vetUserId = auth.UserId,
+            vetUserId,
             scheduledAt,
             notes = "Annual check-up",
         });
@@ -167,11 +169,12 @@ public sealed class AppointmentEndpointsTests : IClassFixture<VetCareWebApplicat
         var owner = await CreateOwner(client);
         var pet1 = await CreatePet(client, owner.Id);
         var pet2 = await CreatePet(client, owner.Id);
+        var vetUserId = await _factory.CreateUserAsync(auth.TenantId, UserRole.Vet);
 
         var schedule1 = await client.PostAsJsonAsync("/api/v1/appointments", new
         {
             petId = pet1.Id,
-            vetUserId = auth.UserId,
+            vetUserId,
             scheduledAt = DateTime.UtcNow.AddDays(1),
             notes = (string?)null,
         });
@@ -180,7 +183,7 @@ public sealed class AppointmentEndpointsTests : IClassFixture<VetCareWebApplicat
         var schedule2 = await client.PostAsJsonAsync("/api/v1/appointments", new
         {
             petId = pet2.Id,
-            vetUserId = auth.UserId,
+            vetUserId,
             scheduledAt = DateTime.UtcNow.AddDays(2),
             notes = (string?)null,
         });
@@ -201,11 +204,12 @@ public sealed class AppointmentEndpointsTests : IClassFixture<VetCareWebApplicat
         var (client, auth) = await AuthenticatedClient();
         var owner = await CreateOwner(client);
         var pet = await CreatePet(client, owner.Id);
+        var vetUserId = await _factory.CreateUserAsync(auth.TenantId, UserRole.Vet);
 
         var scheduleResponse = await client.PostAsJsonAsync("/api/v1/appointments", new
         {
             petId = pet.Id,
-            vetUserId = auth.UserId,
+            vetUserId,
             scheduledAt = DateTime.UtcNow.AddDays(1),
             notes = (string?)null,
         });

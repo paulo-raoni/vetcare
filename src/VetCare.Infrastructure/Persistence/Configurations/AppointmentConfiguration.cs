@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using VetCare.Domain.Appointments;
+using VetCare.Domain.Pets;
+using VetCare.Domain.Users;
 
 namespace VetCare.Infrastructure.Persistence.Configurations;
 
@@ -31,6 +33,16 @@ public sealed class AppointmentConfiguration : IEntityTypeConfiguration<Appointm
 
         builder.HasIndex(a => new { a.TenantId, a.PetId });
         builder.HasIndex(a => new { a.TenantId, a.ScheduledAt });
+
+        builder.HasOne<Pet>()
+            .WithMany()
+            .HasForeignKey(a => a.PetId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(a => a.VetUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Ignore(a => a.DomainEvents);
     }

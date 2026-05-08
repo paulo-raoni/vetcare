@@ -19,6 +19,7 @@ using VetCare.Application.Abstractions.Storage;
 using VetCare.Domain.Appointments;
 using VetCare.Domain.Owners;
 using VetCare.Domain.Pets;
+using VetCare.Domain.Users;
 using VetCare.Domain.Vaccinations;
 using VetCare.Infrastructure.Auditing;
 using VetCare.Infrastructure.Identity;
@@ -48,6 +49,7 @@ public static class DependencyInjection
         services.AddScoped<IRepository<Pet>, PetRepository>();
         services.AddScoped<IRepository<Appointment>, AppointmentRepository>();
         services.AddScoped<IRepository<Vaccination>, VaccinationRepository>();
+        services.AddScoped<IRepository<User>, UserRepository>();
 
         services.AddScoped<ITenantProvider, CurrentTenantProvider>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();

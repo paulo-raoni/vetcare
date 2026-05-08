@@ -1,5 +1,19 @@
 # VetCare — Progress
 
+## fix/security-integrity — M0–M5 review fallout (in delivery)
+
+- **Foreign keys + `Restrict` delete behavior added across all relational tables.** `PetConfiguration` / `OwnerConfiguration` / `UserConfiguration` / `AppointmentConfiguration` / `VaccinationConfiguration` declare explicit `HasOne<T>().WithMany().HasForeignKey(...)` relationships for `Pet → Owner`, `Pet/Owner/User → Tenant`, `Appointment → Pet`, `Appointment → User (VetUserId)`, `Vaccination → Pet`. Generated migration `20260508190409_AddForeignKeyConstraints` adds the seven FKs plus supporting indexes (`IX_pets_OwnerId`, `IX_appointments_PetId`, `IX_appointments_VetUserId`, `IX_vaccinations_PetId`).
+- **Role-based authorization policies (`AdminOnly` / `VetOrAdmin` / `AnyStaff`).** New `src/VetCare.Api/Authorization/AuthorizationPolicies.cs` constants; `Program.cs` registers them with `AddAuthorizationBuilder().AddPolicy(...)` using `policy.RequireRole(...)` against the `ClaimTypes.Role` claim emitted by `JwtTokenService` (`Admin` / `Vet` / `Receptionist`).
+- **Per-endpoint policy mapping.** Each minimal-API endpoint now calls `RequireAuthorization(<policy>)`: `GET /owners|pets|vaccinations|appointments` → `AnyStaff`; `POST/PUT/DELETE /owners|pets`, `POST/PUT /vaccinations`, `PUT /appointments/{id}/{confirm,complete}` → `VetOrAdmin`; `POST /appointments`, `PUT /appointments/{id}/cancel`, `POST /pets/{id}/photo` → `AnyStaff`. Group-level `RequireAuthorization()` is preserved so anonymous callers still get 401 (not 403).
+- **`ScheduleAppointmentCommandHandler` validates `VetUserId`.** Loads the user via new `IRepository<User>` + `UserByIdSpec` (registered as `UserRepository : EfRepository<User>`); throws `NotFoundException` when the user is missing, belongs to a different tenant, or has `Role != UserRole.Vet`. The `User` tenant query filter already scopes the lookup, but the explicit `vet.TenantId != _tenantProvider.TenantId` check provides defense-in-depth.
+- **Magic-byte sniffing on pet photo upload.** `PetEndpoints.UploadPetPhoto` reads the first 4 bytes of the form file and rejects with `400 "Invalid image file"` unless the prefix matches JPEG (`FF D8 FF`) or PNG (`89 50 4E 47`); stream `Position` is reset to `0` before the upload command runs. Content-type and 5 MB size checks remain as the first-line filters.
+
+### Tests added
+
+- Application unit tests: `ScheduleAppointmentHandlerTests` gains three cases (vet user not found / wrong tenant / wrong role) and the happy path now stubs `IRepository<User>` returning a `Vet` user — count 32 → 35.
+- Integration tests: new `AuthorizationPolicyTests` (Receptionist `DELETE /owners` → 403, Receptionist `PUT /appointments/{id}/confirm` → 403) plus two new `PetPhotoEndpointTests` cases (valid PNG magic → 200; PDF bytes with `image/jpeg` content type → 400). `VetCareWebApplicationFactory` adds `CreateUserAsync` and `CreateUserAndIssueTokenAsync` helpers (scope-resolved `VetCareDbContext` + `IJwtTokenService`) so tests can seed a `Vet` user before scheduling and mint a Receptionist JWT for 403 assertions. Integration count 22 → 26.
+- Gates: `make build` — 0/0; `make test` — 88 passing (Domain 27, Application 35, Integration 26); `make lint` — clean.
+
 ## fix/runtime-critical — M0–M5 review fallout (in delivery)
 
 - **Vaccination list endpoint no longer 500s.** `ListVaccinationsQueryHandler` was missing despite `ListVaccinationsQuery`/validator/spec being wired through MediatR; added at `src/VetCare.Application/Vaccinations/Queries/ListVaccinations/ListVaccinationsQueryHandler.cs`, mirroring `ListAppointmentsQueryHandler` (paged + count specs over `IRepository<Vaccination>`, Mapster-projected to `VaccinationDto`).

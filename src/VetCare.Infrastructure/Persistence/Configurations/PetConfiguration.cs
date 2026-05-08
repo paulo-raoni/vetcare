@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using VetCare.Domain.Owners;
 using VetCare.Domain.Pets;
+using VetCare.Domain.Tenants;
 
 namespace VetCare.Infrastructure.Persistence.Configurations;
 
@@ -28,6 +30,16 @@ public sealed class PetConfiguration : IEntityTypeConfiguration<Pet>
         builder.Property(p => p.UpdatedAt).IsRequired();
 
         builder.HasIndex(p => new { p.TenantId, p.OwnerId });
+
+        builder.HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(p => p.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Owner>()
+            .WithMany()
+            .HasForeignKey(p => p.OwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Ignore(p => p.DomainEvents);
     }
