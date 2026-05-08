@@ -20,7 +20,7 @@ layered structure rather than a single-project app.
 `VetCare.Domain` (no external references), `VetCare.Application` (depends on
 Domain only), `VetCare.Infrastructure` (depends on Application + Domain), and
 `VetCare.Api` (composition root, references all three). The rules are stated in
-`CLAUDE.md` and enforced by project references rather than analyzers.
+the project conventions and enforced by project references rather than analyzers.
 
 **Consequences.** Domain stays pure and unit-testable without a host. Cross-cutting
 concerns (EF, Mongo, AWS) live in Infrastructure, never leak upward. The Api

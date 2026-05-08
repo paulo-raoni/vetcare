@@ -9,7 +9,7 @@
 - **Legacy module section explains the *why*.** Calls out brownfield realism: central package management opt-out for `net48`, Linux/Windows asymmetry handled by the dedicated `legacy-build` GitHub Actions job, `<IsTestProject>false</IsTestProject>` to skip on Linux, and the explicit `tenantId` parameter that compensates for raw SQL bypassing the EF Core query filter.
 - **`.env.example` created at the repo root** with placeholder-only values for every env var the API consumes: `ASPNETCORE_ENVIRONMENT` / `ASPNETCORE_URLS`, `ConnectionStrings__DefaultConnection`, `Jwt__{Secret,Issuer,Audience,ExpiryMinutes}`, `Aws__{Region,ServiceUrl,AccessKey,SecretKey}`, `S3__{BucketName,ServiceUrl}`, `Mongo__{ConnectionString,DatabaseName,AuditCollectionName}`. Documents the ASP.NET Core double-underscore convention and notes that the dev defaults in `appsettings.Development.json` already match `docker-compose.yml`, so the file is only required for production-like overrides.
 - **Backlog section names the three highest-leverage deferred items** — Testcontainers, outbox pattern for `SaveChangesAsync` → SQS reliability, rate limiting + lockout on auth endpoints — with short descriptions that match `docs/BACKLOG.md`.
-- **No code changes.** Doc-only PR; per `CLAUDE.md` Section 7 the `make build` / `make test` / `make lint` gates are not required for `.md`-only deliveries, but were re-run as a sanity check (all clean: 88 tests passing, 0 warnings, 0 errors).
+- **No code changes.** Doc-only PR; per the project conventions (Section 7) the `make build` / `make test` / `make lint` gates are not required for `.md`-only deliveries, but were re-run as a sanity check (all clean: 88 tests passing, 0 warnings, 0 errors).
 
 ## fix/quality — M0–M5 review fallout (in delivery)
 
