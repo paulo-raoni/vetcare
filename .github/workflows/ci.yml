@@ -70,6 +70,29 @@ jobs:
       - name: Start docker compose stack
         run: docker compose up -d postgres mongo localstack
 
+      - name: Wait for LocalStack gateway
+        run: |
+          echo "Waiting for LocalStack gateway..."
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:4566/_localstack/health 2>/dev/null | grep -q '"sqs": "running"'; then
+              echo "LocalStack gateway ready."
+              break
+            fi
+            echo "Attempt $i/20 — waiting..."
+            sleep 3
+          done
+
+      - name: Bootstrap LocalStack
+        run: |
+          aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name appointment-reminders --region us-east-1
+          aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name appointment-cancellations --region us-east-1
+          aws --endpoint-url=http://localhost:4566 s3 mb s3://vetcare-pets --region us-east-1
+          echo "LocalStack bootstrap complete."
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+
       - name: Install EF Core CLI
         run: dotnet tool install --global dotnet-ef --version 8.0.10
 
@@ -114,26 +137,6 @@ jobs:
           echo "API did not become ready in time" >&2
           cat /tmp/api.log >&2 || true
           exit 1
-
-      - name: Wait for LocalStack
-        run: |
-          echo "Waiting for LocalStack SQS..."
-          for i in $(seq 1 20); do
-            if aws --endpoint-url=http://localhost:4566 sqs list-queues \
-               --region us-east-1 \
-               --query 'QueueUrls[*]' \
-               --output text 2>/dev/null | grep -q "appointment-reminders"; then
-              echo "LocalStack SQS ready."
-              exit 0
-            fi
-            echo "Attempt $i/20 — waiting..."
-            sleep 3
-          done
-          echo "LocalStack SQS not ready after 60s"
-          exit 1
-        env:
-          AWS_ACCESS_KEY_ID: test
-          AWS_SECRET_ACCESS_KEY: test
 
       - name: Run Newman collection
         run: newman run docs/e2e/vetcare.collection.json --env-var baseUrl=http://localhost:5000
