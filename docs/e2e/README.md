@@ -10,11 +10,12 @@ covering the request sequence:
 
 1. `POST /api/v1/auth/register` — provision a fresh tenant + admin user
 2. `POST /api/v1/auth/login` — re-authenticate and capture the JWT
-3. `POST /api/v1/owners` — create an owner under the tenant
-4. `POST /api/v1/pets` — create a pet for that owner
-5. `POST /api/v1/appointments` — schedule an appointment for the pet
-6. `PUT  /api/v1/appointments/{id}/confirm` — confirm the appointment
-7. `POST /api/v1/vaccinations` — record a vaccination
+3. `POST /api/v1/users` — create a `Vet` user inside the same tenant (admin-only); the appointment step uses this `vetUserId`
+4. `POST /api/v1/owners` — create an owner under the tenant
+5. `POST /api/v1/pets` — create a pet for that owner
+6. `POST /api/v1/appointments` — schedule an appointment for the pet, assigned to the vet user
+7. `PUT  /api/v1/appointments/{id}/confirm` — confirm the appointment
+8. `POST /api/v1/vaccinations` — record a vaccination
 
 Each request has test assertions and uses collection variables to chain ids
 between steps. The tenant slug, email, scheduled date, and vaccination dates
@@ -49,8 +50,9 @@ collection can be wired into CI.
 
 ## What the collection verifies
 
-- The auth flow returns a valid JWT and propagates the captured `userId` into
-  the appointment payload.
+- The auth flow returns a valid JWT and the admin caller can create a tenant-scoped
+  `Vet` user via `POST /api/v1/users`; the captured `vetUserId` is then used in
+  the appointment payload (the API rejects scheduling against non-`Vet` users).
 - Domain invariants are respected at the API surface: appointments are scheduled
   with `status = 1` (Scheduled), then transition to `status = 2` (Confirmed) via
   the confirm endpoint.

@@ -11,7 +11,8 @@ using VetCare.Domain.Users;
 
 namespace VetCare.Infrastructure.IntegrationTests.Api;
 
-public sealed class AppointmentEndpointsTests : IClassFixture<VetCareWebApplicationFactory>
+[Collection(IntegrationTestsCollection.Name)]
+public sealed class AppointmentEndpointsTests
 {
     private readonly VetCareWebApplicationFactory _factory;
 

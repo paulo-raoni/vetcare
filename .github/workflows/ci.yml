@@ -45,3 +45,113 @@ jobs:
 
       - name: Build LegacyReports
         run: dotnet build legacy/VetCare.LegacyReports/VetCare.LegacyReports.csproj --configuration Release
+
+  e2e:
+    name: E2E (Newman)
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Start docker compose stack
+        run: docker compose up -d postgres mongo localstack
+
+      - name: Wait for LocalStack gateway
+        run: |
+          echo "Waiting for LocalStack gateway..."
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:4566/_localstack/health 2>/dev/null | grep -q '"sqs": "running"'; then
+              echo "LocalStack gateway ready."
+              break
+            fi
+            echo "Attempt $i/20 — waiting..."
+            sleep 3
+          done
+
+      - name: Bootstrap LocalStack
+        run: |
+          aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name appointment-reminders --region us-east-1
+          aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name appointment-cancellations --region us-east-1
+          aws --endpoint-url=http://localhost:4566 s3 mb s3://vetcare-pets --region us-east-1
+          echo "LocalStack bootstrap complete."
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+
+      - name: Install EF Core CLI
+        run: dotnet tool install --global dotnet-ef --version 8.0.10
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in $(seq 1 30); do
+            if docker exec vetcare-postgres pg_isready -U vetcare >/dev/null 2>&1; then
+              echo "Postgres is ready"
+              exit 0
+            fi
+            echo "Waiting for Postgres ($i/30)..."
+            sleep 2
+          done
+          echo "Postgres did not become ready in time" >&2
+          exit 1
+
+      - name: Restore dotnet tools
+        run: dotnet tool restore
+
+      - name: Apply EF Core migrations
+        run: dotnet ef database update --project src/VetCare.Infrastructure --startup-project src/VetCare.Infrastructure
+
+      - name: Build API
+        run: dotnet build src/VetCare.Api/VetCare.Api.csproj --configuration Release
+
+      - name: Start API
+        run: |
+          nohup dotnet run --project src/VetCare.Api --configuration Release --no-build --urls http://localhost:5000 \
+            > /tmp/api.log 2>&1 &
+          echo $! > api.pid
+
+      - name: Wait for API health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:5000/health >/dev/null 2>&1; then
+              echo "API is ready"
+              exit 0
+            fi
+            echo "Waiting for API ($i/30)..."
+            sleep 1
+          done
+          echo "API did not become ready in time" >&2
+          cat /tmp/api.log >&2 || true
+          exit 1
+
+      - name: Run Newman collection
+        run: newman run docs/e2e/vetcare.collection.json --env-var baseUrl=http://localhost:5000
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f api.pid ]; then
+            kill "$(cat api.pid)" 2>/dev/null || true
+          fi
+
+      - name: Print API logs on failure
+        if: failure()
+        run: cat /tmp/api.log || true
+
+      - name: Tear down docker compose stack
+        if: always()
+        run: docker compose down -v

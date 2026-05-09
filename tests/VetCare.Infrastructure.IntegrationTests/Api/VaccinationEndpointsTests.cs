@@ -6,7 +6,8 @@ using VetCare.Domain.Pets;
 
 namespace VetCare.Infrastructure.IntegrationTests.Api;
 
-public sealed class VaccinationEndpointsTests : IClassFixture<VetCareWebApplicationFactory>
+[Collection(IntegrationTestsCollection.Name)]
+public sealed class VaccinationEndpointsTests
 {
     private readonly VetCareWebApplicationFactory _factory;
 

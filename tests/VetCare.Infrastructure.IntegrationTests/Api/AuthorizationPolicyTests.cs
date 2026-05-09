@@ -7,7 +7,8 @@ using VetCare.Domain.Users;
 
 namespace VetCare.Infrastructure.IntegrationTests.Api;
 
-public sealed class AuthorizationPolicyTests : IClassFixture<VetCareWebApplicationFactory>
+[Collection(IntegrationTestsCollection.Name)]
+public sealed class AuthorizationPolicyTests
 {
     private readonly VetCareWebApplicationFactory _factory;
 

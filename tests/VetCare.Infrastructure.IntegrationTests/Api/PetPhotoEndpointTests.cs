@@ -3,13 +3,12 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using NSubstitute;
-using VetCare.Application.Abstractions.Auditing;
-using VetCare.Application.Auditing;
 using VetCare.Domain.Pets;
 
 namespace VetCare.Infrastructure.IntegrationTests.Api;
 
-public sealed class PetPhotoEndpointTests : IClassFixture<VetCareWebApplicationFactory>
+[Collection(IntegrationTestsCollection.Name)]
+public sealed class PetPhotoEndpointTests : IAsyncLifetime
 {
     private readonly VetCareWebApplicationFactory _factory;
 
@@ -17,6 +16,14 @@ public sealed class PetPhotoEndpointTests : IClassFixture<VetCareWebApplicationF
     {
         _factory = factory;
     }
+
+    public Task InitializeAsync()
+    {
+        _factory.ClearSubstitutes();
+        return Task.CompletedTask;
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     private sealed record AuthResponse(string AccessToken, DateTime ExpiresAt, Guid TenantId, Guid UserId, string Email, string Role);
 
@@ -104,9 +111,8 @@ public sealed class PetPhotoEndpointTests : IClassFixture<VetCareWebApplicationF
             "image/jpeg",
             Arg.Any<CancellationToken>());
 
-        await _factory.AuditRepository.Received().SaveAsync(
-            Arg.Is<AuditEntry>(e => e.Action == "UploadPetPhotoCommand"),
-            Arg.Any<CancellationToken>());
+        var auditCount = await _factory.CountAuditEntriesByActionAndEntityAsync("UploadPetPhotoCommand", pet.Id);
+        auditCount.Should().Be(1);
     }
 
     [Fact]
