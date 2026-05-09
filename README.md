@@ -242,7 +242,7 @@ All routes are prefixed with `/api/v1`. Authenticated endpoints expect a `Bearer
 
 | Method | Path             | Auth   | Role        | Description                                                  |
 | ------ | ---------------- | ------ | ----------- | ------------------------------------------------------------ |
-| POST   | `/api/v1/users`  | Bearer | `AdminOnly` | Create a new user within the tenant (email, password, role). |
+| POST   | `/users`         | Bearer | `AdminOnly` | Create a new user within the tenant (email, password, role). |
 
 ### Owners
 
