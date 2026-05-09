@@ -86,6 +86,9 @@ jobs:
           echo "Postgres did not become ready in time" >&2
           exit 1
 
+      - name: Restore dotnet tools
+        run: dotnet tool restore
+
       - name: Apply EF Core migrations
         run: dotnet ef database update --project src/VetCare.Infrastructure --startup-project src/VetCare.Api
 
