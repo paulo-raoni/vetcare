@@ -5,9 +5,11 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using NSubstitute;
-using VetCare.Application.Abstractions.Auditing;
+using Testcontainers.MongoDb;
+using Testcontainers.PostgreSql;
 using VetCare.Application.Abstractions.Identity;
 using VetCare.Application.Abstractions.Messaging;
 using VetCare.Application.Abstractions.Storage;
@@ -16,15 +18,43 @@ using VetCare.Infrastructure.Persistence;
 
 namespace VetCare.Infrastructure.IntegrationTests;
 
-public sealed class VetCareWebApplicationFactory : WebApplicationFactory<Program>
+public sealed class VetCareWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly string _databaseName = $"vetcare-tests-{Guid.NewGuid():N}";
+    private const string AuditCollectionName = "audit_log";
+
+    private readonly string _mongoDatabaseName = $"vetcare-tests-{Guid.NewGuid():N}";
+
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
+        .WithImage("postgres:16")
+        .WithDatabase("vetcare")
+        .WithUsername("vetcare")
+        .WithPassword("vetcare")
+        .Build();
+
+    private readonly MongoDbContainer _mongo = new MongoDbBuilder()
+        .WithImage("mongo:7")
+        .Build();
 
     public ISqsPublisher SqsPublisher { get; } = Substitute.For<ISqsPublisher>();
 
-    public IAuditRepository AuditRepository { get; } = Substitute.For<IAuditRepository>();
-
     public IStorageService StorageService { get; } = Substitute.For<IStorageService>();
+
+    public async Task InitializeAsync()
+    {
+        await _postgres.StartAsync();
+        await _mongo.StartAsync();
+
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<VetCareDbContext>();
+        await db.Database.MigrateAsync();
+    }
+
+    public new async Task DisposeAsync()
+    {
+        await base.DisposeAsync();
+        await _postgres.DisposeAsync();
+        await _mongo.DisposeAsync();
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -34,7 +64,7 @@ public sealed class VetCareWebApplicationFactory : WebApplicationFactory<Program
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Database=ignored;Username=ignored;Password=ignored",
+                ["ConnectionStrings:DefaultConnection"] = _postgres.GetConnectionString(),
                 ["Jwt:Secret"] = "test-secret-test-secret-test-secret-test-secret-32bytes!!",
                 ["Jwt:Issuer"] = "vetcare-tests",
                 ["Jwt:Audience"] = "vetcare-tests",
@@ -45,9 +75,9 @@ public sealed class VetCareWebApplicationFactory : WebApplicationFactory<Program
                 ["Aws:SecretKey"] = "test",
                 ["S3:BucketName"] = "vetcare-pets-tests",
                 ["S3:ServiceUrl"] = "http://localhost:4566",
-                ["Mongo:ConnectionString"] = "mongodb://localhost:27017",
-                ["Mongo:DatabaseName"] = "vetcare-tests",
-                ["Mongo:AuditCollectionName"] = "audit_log",
+                ["Mongo:ConnectionString"] = _mongo.GetConnectionString(),
+                ["Mongo:DatabaseName"] = _mongoDatabaseName,
+                ["Mongo:AuditCollectionName"] = AuditCollectionName,
             });
         });
 
@@ -60,29 +90,14 @@ public sealed class VetCareWebApplicationFactory : WebApplicationFactory<Program
             }
 
             services.AddDbContext<VetCareDbContext>(options =>
-                options.UseInMemoryDatabase(_databaseName));
+                options.UseNpgsql(
+                    _postgres.GetConnectionString(),
+                    npgsql => npgsql.MigrationsHistoryTable("__ef_migrations_history", VetCareDbContext.Schema)));
 
-            var sqsDescriptors = services.Where(d => d.ServiceType == typeof(IAmazonSQS)).ToList();
-            foreach (var descriptor in sqsDescriptors)
-            {
-                services.Remove(descriptor);
-            }
-
-            services.AddSingleton(Substitute.For<IAmazonSQS>());
-
-            var publisherDescriptors = services.Where(d => d.ServiceType == typeof(ISqsPublisher)).ToList();
-            foreach (var descriptor in publisherDescriptors)
-            {
-                services.Remove(descriptor);
-            }
-
-            services.AddSingleton(SqsPublisher);
-
+            ReplaceService(services, typeof(IAmazonSQS), Substitute.For<IAmazonSQS>());
+            ReplaceService(services, typeof(ISqsPublisher), SqsPublisher);
             ReplaceService(services, typeof(IAmazonS3), Substitute.For<IAmazonS3>());
             ReplaceService(services, typeof(IStorageService), StorageService);
-            ReplaceService(services, typeof(IMongoClient), Substitute.For<IMongoClient>());
-            ReplaceService(services, typeof(IMongoDatabase), Substitute.For<IMongoDatabase>());
-            ReplaceService(services, typeof(IAuditRepository), AuditRepository);
         });
     }
 
@@ -117,5 +132,14 @@ public sealed class VetCareWebApplicationFactory : WebApplicationFactory<Program
         await db.SaveChangesAsync();
         var token = tokens.Generate(user);
         return (user.Id, token.Token);
+    }
+
+    public async Task<long> CountAuditEntriesByActionAsync(string action, CancellationToken ct = default)
+    {
+        using var scope = Services.CreateScope();
+        var database = scope.ServiceProvider.GetRequiredService<IMongoDatabase>();
+        var collection = database.GetCollection<BsonDocument>(AuditCollectionName);
+        var filter = Builders<BsonDocument>.Filter.Eq("action", action);
+        return await collection.CountDocumentsAsync(filter, cancellationToken: ct);
     }
 }

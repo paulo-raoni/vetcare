@@ -6,12 +6,18 @@ candidates for a future milestone or hardening pass.
 
 ## Testing & reliability
 
-- **Testcontainers-backed integration tests for Postgres, Mongo, and LocalStack.**
-  The current integration suite uses `WebApplicationFactory` with EF in-memory
-  / NSubstitute fakes for `IAmazonS3` / `IAmazonSQS` / `IMongoClient`. Replace
-  the fakes with Testcontainers so the suite exercises the real Npgsql provider
-  (catches query-filter / EF-translation bugs), the real Mongo driver against a
-  real database, and LocalStack for S3 + SQS round-trips.
+- **Testcontainers-backed integration tests for Postgres + Mongo.** ✅ Done in
+  `feat/testcontainers`. `VetCareWebApplicationFactory` now spins up real
+  `postgres:16` and `mongo:7` containers via `Testcontainers.PostgreSql` /
+  `Testcontainers.MongoDb`, runs EF Core migrations on startup, and resolves
+  the real `MongoAuditRepository` so the suite exercises the actual Npgsql
+  provider (FKs, query filters, composite indexes) and the real Mongo driver.
+- **LocalStack-backed S3 + SQS in integration tests.** Still pending. The
+  factory keeps `IAmazonS3` / `ISqsPublisher` as NSubstitute fakes — bringing
+  LocalStack into Testcontainers requires queue/bucket bootstrap, region
+  wiring, and credential plumbing that does not pay off for current
+  assertions. The Newman E2E CI job already covers S3 + SQS round-trips
+  against a docker-compose LocalStack instance, so this is a nice-to-have.
 - **Outbox pattern for domain-event reliability.** `VetCareDbContext.SaveChangesAsync`
   collects domain events and dispatches them via MediatR after commit. If the
   process dies between commit and publish, the SQS message is lost. Persist

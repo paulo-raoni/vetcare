@@ -205,8 +205,9 @@ make test
 | --------------------------------------------- | -------------------------------------------------------------------------------- |
 | `VetCare.Domain.UnitTests`                    | Aggregate invariants, state machines, domain-event raising.                      |
 | `VetCare.Application.UnitTests`               | MediatR handlers (happy/error paths), validators, `ValidationBehavior` + `AuditBehavior`. |
-| `VetCare.Infrastructure.IntegrationTests`     | End-to-end through `WebApplicationFactory`: register → JWT → CRUD → multipart photo upload → 401/403/409 paths. |
+| `VetCare.Infrastructure.IntegrationTests`     | Integration tests via `WebApplicationFactory` backed by real PostgreSQL and MongoDB containers (Testcontainers). Covers register → JWT → CRUD → photo upload → 401/403/409 paths. |
 | `VetCare.LegacyReports.Tests`                 | iTextSharp PDF rendering + raw-SQL tenant guards (skipped on Linux runtime; built in CI on Windows). |
+| `E2E (Newman)`                                | Full happy-path flow via Newman against a live API instance (CI job: `e2e`). |
 
 ### Running E2E (Newman)
 

@@ -5,7 +5,8 @@ using FluentAssertions;
 
 namespace VetCare.Infrastructure.IntegrationTests.Api;
 
-public sealed class OwnerEndpointsTests : IClassFixture<VetCareWebApplicationFactory>
+[Collection(IntegrationTestsCollection.Name)]
+public sealed class OwnerEndpointsTests
 {
     private readonly VetCareWebApplicationFactory _factory;
 
