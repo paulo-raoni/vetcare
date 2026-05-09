@@ -238,6 +238,12 @@ All routes are prefixed with `/api/v1`. Authenticated endpoints expect a `Bearer
 | POST   | `/auth/register`    | Anonymous | —    | Provision a new tenant + admin user; returns a JWT.  |
 | POST   | `/auth/login`       | Anonymous | —    | Authenticate against `(tenantSlug, email, password)`. |
 
+### Users
+
+| Method | Path             | Auth   | Role        | Description                                                  |
+| ------ | ---------------- | ------ | ----------- | ------------------------------------------------------------ |
+| POST   | `/api/v1/users`  | Bearer | `AdminOnly` | Create a new user within the tenant (email, password, role). |
+
 ### Owners
 
 | Method | Path                | Auth   | Role         | Description                       |

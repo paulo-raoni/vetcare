@@ -151,4 +151,16 @@ public sealed class VetCareWebApplicationFactory : WebApplicationFactory<Program
         var filter = Builders<BsonDocument>.Filter.Eq("action", action);
         return await collection.CountDocumentsAsync(filter, cancellationToken: ct);
     }
+
+    public async Task<long> CountAuditEntriesByActionAndEntityAsync(string action, Guid entityId, CancellationToken ct = default)
+    {
+        using var scope = Services.CreateScope();
+        var database = scope.ServiceProvider.GetRequiredService<IMongoDatabase>();
+        var collection = database.GetCollection<BsonDocument>(AuditCollectionName);
+        var idString = entityId.ToString();
+        var filter = Builders<BsonDocument>.Filter.And(
+            Builders<BsonDocument>.Filter.Eq("action", action),
+            Builders<BsonDocument>.Filter.Eq("payload.petId", idString));
+        return await collection.CountDocumentsAsync(filter, cancellationToken: ct);
+    }
 }

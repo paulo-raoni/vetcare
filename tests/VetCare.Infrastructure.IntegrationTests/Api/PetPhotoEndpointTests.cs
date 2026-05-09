@@ -111,8 +111,8 @@ public sealed class PetPhotoEndpointTests : IAsyncLifetime
             "image/jpeg",
             Arg.Any<CancellationToken>());
 
-        var auditCount = await _factory.CountAuditEntriesByActionAsync("UploadPetPhotoCommand");
-        auditCount.Should().BeGreaterThan(0);
+        var auditCount = await _factory.CountAuditEntriesByActionAndEntityAsync("UploadPetPhotoCommand", pet.Id);
+        auditCount.Should().Be(1);
     }
 
     [Fact]
