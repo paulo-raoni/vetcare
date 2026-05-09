@@ -6,6 +6,7 @@ using VetCare.Api.Endpoints.Appointments;
 using VetCare.Api.Endpoints.Auth;
 using VetCare.Api.Endpoints.Owners;
 using VetCare.Api.Endpoints.Pets;
+using VetCare.Api.Endpoints.Users;
 using VetCare.Api.Endpoints.Vaccinations;
 using VetCare.Api.Infrastructure;
 using VetCare.Application;
@@ -90,6 +91,7 @@ var versionSet = app.NewApiVersionSet()
 app.MapGet("/health", () => "ok");
 
 app.MapAuthEndpoints(versionSet);
+app.MapUserEndpoints(versionSet);
 app.MapOwnerEndpoints(versionSet);
 app.MapPetEndpoints(versionSet);
 app.MapAppointmentEndpoints(versionSet);

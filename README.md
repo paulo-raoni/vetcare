@@ -324,6 +324,7 @@ Two GitHub Actions workflows in [`.github/workflows/`](./.github/workflows/):
 
 - `build-and-test` (Ubuntu): `dotnet restore` → `dotnet build -c Release` → `dotnet test -c Release` → `dotnet format --verify-no-changes`.
 - `legacy-build` (Windows): `dotnet build legacy/VetCare.LegacyReports/VetCare.LegacyReports.csproj -c Release` so the net48 module never falls behind silently.
+- `e2e` (Ubuntu, runs after `build-and-test`): boots the full stack via `docker compose up postgres mongo localstack`, applies EF Core migrations, runs the API on port 5000, polls `/health` until ready, then executes [`docs/e2e/vetcare.collection.json`](./docs/e2e/vetcare.collection.json) with `newman run` to verify the register → vet user → owner → pet → appointment → confirm → vaccination flow against real services. Containers are torn down with `docker compose down -v` even on failure.
 
 **`lint.yml`** — runs on every pull request: `dotnet format VetCare.sln --verify-no-changes` (style-only check, fails fast on whitespace/formatting drift).
 
@@ -343,7 +344,7 @@ A delivery where any gate fails is not a delivery. Every PR must pass all three 
 
 Deferred ideas and improvements — not committed scope. See [`docs/BACKLOG.md`](./docs/BACKLOG.md) for the full list.
 
-- **Testcontainers-backed integration tests.** Replace EF in-memory + NSubstitute fakes with real Postgres / Mongo / LocalStack containers so the suite catches Npgsql translation bugs and exercises the real drivers.
+- **LocalStack-backed S3 + SQS in integration tests.** Postgres + Mongo are now real containers via Testcontainers, but `IAmazonS3` / `ISqsPublisher` remain NSubstitute fakes. Bringing LocalStack into Testcontainers (queue + bucket bootstrap, region/credential wiring) would close the last gap; the Newman E2E job already exercises the real drivers end-to-end against docker-compose.
 - **Outbox pattern for domain-event reliability.** Persist domain events in an `outbox` table inside the same transaction as the aggregate write, then drain to SQS via a worker — closes the post-commit-publish gap noted in ADR-006.
 - **Rate limiting + lockout on auth endpoints.** Add ASP.NET Core rate limiting (per-IP and per-account) and a soft lockout after N failures on `POST /auth/login` and `POST /auth/register`.
 

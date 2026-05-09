@@ -8,7 +8,7 @@ using VetCare.Domain.Pets;
 namespace VetCare.Infrastructure.IntegrationTests.Api;
 
 [Collection(IntegrationTestsCollection.Name)]
-public sealed class PetPhotoEndpointTests
+public sealed class PetPhotoEndpointTests : IAsyncLifetime
 {
     private readonly VetCareWebApplicationFactory _factory;
 
@@ -16,6 +16,14 @@ public sealed class PetPhotoEndpointTests
     {
         _factory = factory;
     }
+
+    public Task InitializeAsync()
+    {
+        _factory.ClearSubstitutes();
+        return Task.CompletedTask;
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     private sealed record AuthResponse(string AccessToken, DateTime ExpiresAt, Guid TenantId, Guid UserId, string Email, string Role);
 

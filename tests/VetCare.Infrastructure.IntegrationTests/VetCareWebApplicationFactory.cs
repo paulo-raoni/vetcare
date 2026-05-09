@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using NSubstitute;
+using NSubstitute.ClearExtensions;
 using Testcontainers.MongoDb;
 using Testcontainers.PostgreSql;
 using VetCare.Application.Abstractions.Identity;
@@ -38,6 +39,14 @@ public sealed class VetCareWebApplicationFactory : WebApplicationFactory<Program
     public ISqsPublisher SqsPublisher { get; } = Substitute.For<ISqsPublisher>();
 
     public IStorageService StorageService { get; } = Substitute.For<IStorageService>();
+
+    public void ClearSubstitutes()
+    {
+        SqsPublisher.ClearReceivedCalls();
+        SqsPublisher.ClearSubstitute(ClearOptions.ReturnValues);
+        StorageService.ClearReceivedCalls();
+        StorageService.ClearSubstitute(ClearOptions.ReturnValues);
+    }
 
     public async Task InitializeAsync()
     {

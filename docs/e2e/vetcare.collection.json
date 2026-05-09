@@ -26,6 +26,14 @@
       "value": ""
     },
     {
+      "key": "vetEmail",
+      "value": ""
+    },
+    {
+      "key": "vetUserId",
+      "value": ""
+    },
+    {
       "key": "ownerId",
       "value": ""
     },
@@ -112,6 +120,49 @@
         "body": {
           "mode": "raw",
           "raw": "{\n  \"tenantSlug\": \"{{tenantSlug}}\",\n  \"email\": \"{{email}}\",\n  \"password\": \"ChangeMe123!\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Create vet user",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const suffix = Math.random().toString(36).slice(2, 10);",
+              "pm.collectionVariables.set('vetEmail', `vet-${suffix}@acme.test`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.expect(body.role).to.eql(2);",
+              "pm.collectionVariables.set('vetUserId', body.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "users"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{vetEmail}}\",\n  \"password\": \"ChangeMe123!\",\n  \"role\": 2\n}"
         }
       }
     },
@@ -218,7 +269,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"petId\": \"{{petId}}\",\n  \"vetUserId\": \"{{userId}}\",\n  \"scheduledAt\": \"{{scheduledAt}}\",\n  \"notes\": \"Annual check-up\"\n}"
+          "raw": "{\n  \"petId\": \"{{petId}}\",\n  \"vetUserId\": \"{{vetUserId}}\",\n  \"scheduledAt\": \"{{scheduledAt}}\",\n  \"notes\": \"Annual check-up\"\n}"
         }
       }
     },

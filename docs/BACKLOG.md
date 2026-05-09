@@ -16,8 +16,12 @@ candidates for a future milestone or hardening pass.
   factory keeps `IAmazonS3` / `ISqsPublisher` as NSubstitute fakes — bringing
   LocalStack into Testcontainers requires queue/bucket bootstrap, region
   wiring, and credential plumbing that does not pay off for current
-  assertions. The Newman E2E CI job already covers S3 + SQS round-trips
-  against a docker-compose LocalStack instance, so this is a nice-to-have.
+  assertions. The Newman E2E CI job exercises the SQS publish path indirectly
+  (the `Schedule appointment` step triggers `OnAppointmentScheduled`, which
+  calls `ISqsPublisher` against the LocalStack queue), but it does **not** yet
+  cover S3 — the pet-photo upload (`POST /api/v1/pets/{id}/photo`) is not in
+  the collection. Adding a multipart-upload step plus a LocalStack S3
+  round-trip assertion would close the gap.
 - **Outbox pattern for domain-event reliability.** `VetCareDbContext.SaveChangesAsync`
   collects domain events and dispatches them via MediatR after commit. If the
   process dies between commit and publish, the SQS message is lost. Persist
