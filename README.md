@@ -318,7 +318,9 @@ dotnet run --project legacy/VetCare.LegacyReports -- \
 
 Output: `reports/vetcare-2026-05.pdf`. Missing or invalid arguments print a usage line and exit `1`.
 
-**Why it exists.** Real .NET shops carry brownfield code: legacy scheduled jobs, EF6 contexts, iTextSharp PDFs, central package management exemptions, and Linux/Windows build asymmetry. This module demonstrates working with those constraints — central package management is opted out for `net48`, the project never references the .NET 8 stack, the test project sets `<IsTestProject>false</IsTestProject>` so `dotnet test` skips it on Linux (no mono host), and the GitHub Actions pipeline includes a dedicated Windows job to compile it. The report is **tenant-scoped** end-to-end (raw SQL takes a `tenantId` parameter) because the multi-tenant query filter doesn't apply to raw SQL.
+**Why it exists.** Most .NET shops carry brownfield code that was never migrated to modern .NET — scheduled jobs, report generators, legacy integrations. `VetCare.LegacyReports` simulates that reality deliberately: it demonstrates the ability to work in both worlds simultaneously, designing a greenfield system on Clean Architecture and .NET 8 while maintaining and extending legacy code on .NET Framework 4.8, EF6, and iTextSharp.
+
+**Why not migrate.** Keeping the report on `net48` is intentional and reflects real-world pragmatism: the monthly PDF works, the regression risk of a migration is high, and the effort would not deliver immediate business value. Isolating the module with its own Windows build job in CI is the pragmatic engineering call — central package management is opted out for `net48`, the project never references the .NET 8 stack, the test project sets `<IsTestProject>false</IsTestProject>` so `dotnet test` skips it on Linux (no mono host), and the GitHub Actions pipeline includes a dedicated Windows job to compile it. The report is **tenant-scoped** end-to-end (raw SQL takes a `tenantId` parameter) because the multi-tenant query filter doesn't apply to raw SQL.
 
 ---
 
