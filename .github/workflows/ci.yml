@@ -98,7 +98,7 @@ jobs:
       - name: Start API
         run: |
           nohup dotnet run --project src/VetCare.Api --configuration Release --no-build --urls http://localhost:5000 \
-            > api.log 2>&1 &
+            > /tmp/api.log 2>&1 &
           echo $! > api.pid
 
       - name: Wait for API health
@@ -112,8 +112,28 @@ jobs:
             sleep 1
           done
           echo "API did not become ready in time" >&2
-          cat api.log >&2 || true
+          cat /tmp/api.log >&2 || true
           exit 1
+
+      - name: Wait for LocalStack
+        run: |
+          echo "Waiting for LocalStack SQS..."
+          for i in $(seq 1 20); do
+            if aws --endpoint-url=http://localhost:4566 sqs list-queues \
+               --region us-east-1 \
+               --query 'QueueUrls[*]' \
+               --output text 2>/dev/null | grep -q "appointment-reminders"; then
+              echo "LocalStack SQS ready."
+              exit 0
+            fi
+            echo "Attempt $i/20 — waiting..."
+            sleep 3
+          done
+          echo "LocalStack SQS not ready after 60s"
+          exit 1
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
 
       - name: Run Newman collection
         run: newman run docs/e2e/vetcare.collection.json --env-var baseUrl=http://localhost:5000
@@ -124,6 +144,10 @@ jobs:
           if [ -f api.pid ]; then
             kill "$(cat api.pid)" 2>/dev/null || true
           fi
+
+      - name: Print API logs on failure
+        if: failure()
+        run: cat /tmp/api.log || true
 
       - name: Tear down docker compose stack
         if: always()
