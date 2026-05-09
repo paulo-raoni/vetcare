@@ -90,7 +90,7 @@ jobs:
         run: dotnet tool restore
 
       - name: Apply EF Core migrations
-        run: dotnet ef database update --project src/VetCare.Infrastructure --startup-project src/VetCare.Api
+        run: dotnet ef database update --project src/VetCare.Infrastructure --startup-project src/VetCare.Infrastructure
 
       - name: Build API
         run: dotnet build src/VetCare.Api/VetCare.Api.csproj --configuration Release
