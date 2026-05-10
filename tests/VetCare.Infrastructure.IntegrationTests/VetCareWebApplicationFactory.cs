@@ -87,6 +87,7 @@ public sealed class VetCareWebApplicationFactory : WebApplicationFactory<Program
                 ["Mongo:ConnectionString"] = _mongo.GetConnectionString(),
                 ["Mongo:DatabaseName"] = _mongoDatabaseName,
                 ["Mongo:AuditCollectionName"] = AuditCollectionName,
+                ["Outbox:PollInterval"] = "01:00:00",
             });
         });
 

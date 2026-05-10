@@ -6,6 +6,7 @@ namespace VetCare.Infrastructure.MultiTenancy;
 public sealed class CurrentTenantProvider : ITenantProvider
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private Guid? _override;
 
     public CurrentTenantProvider(IHttpContextAccessor httpContextAccessor)
     {
@@ -16,16 +17,21 @@ public sealed class CurrentTenantProvider : ITenantProvider
     {
         get
         {
-            if (TryReadTenant(out var tenantId))
+            if (_override.HasValue)
             {
-                return tenantId;
+                return _override.Value;
             }
 
-            return Guid.Empty;
+            return TryReadTenant(out var tenantId) ? tenantId : Guid.Empty;
         }
     }
 
-    public bool HasTenant => TryReadTenant(out _);
+    public bool HasTenant => _override.HasValue || TryReadTenant(out _);
+
+    public void SetTenant(Guid tenantId)
+    {
+        _override = tenantId;
+    }
 
     private bool TryReadTenant(out Guid tenantId)
     {

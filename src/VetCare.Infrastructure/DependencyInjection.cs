@@ -25,6 +25,7 @@ using VetCare.Infrastructure.Auditing;
 using VetCare.Infrastructure.Identity;
 using VetCare.Infrastructure.Messaging;
 using VetCare.Infrastructure.MultiTenancy;
+using VetCare.Infrastructure.Outbox;
 using VetCare.Infrastructure.Persistence;
 using VetCare.Infrastructure.Persistence.Repositories;
 using VetCare.Infrastructure.Storage;
@@ -51,7 +52,8 @@ public static class DependencyInjection
         services.AddScoped<IRepository<Vaccination>, VaccinationRepository>();
         services.AddScoped<IRepository<User>, UserRepository>();
 
-        services.AddScoped<ITenantProvider, CurrentTenantProvider>();
+        services.AddScoped<CurrentTenantProvider>();
+        services.AddScoped<ITenantProvider>(sp => sp.GetRequiredService<CurrentTenantProvider>());
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 
@@ -159,6 +161,12 @@ public static class DependencyInjection
             });
 
         services.AddAuthorization();
+
+        services.AddOptions<OutboxOptions>()
+            .Bind(configuration.GetSection(OutboxOptions.SectionName));
+
+        services.AddSingleton<OutboxProcessor>();
+        services.AddHostedService(sp => sp.GetRequiredService<OutboxProcessor>());
 
         return services;
     }
