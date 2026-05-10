@@ -2,17 +2,17 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
     paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.env.example'
+      - "**.md"
+      - "docs/**"
+      - ".env.example"
   pull_request:
-    branches: [main]
+    branches: [ main ]
     paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.env.example'
+      - "**.md"
+      - "docs/**"
+      - ".env.example"
 
 jobs:
   build-and-test:
@@ -39,6 +39,60 @@ jobs:
       - name: Lint
         run: dotnet format VetCare.sln --verify-no-changes
 
+  # vulnerability-audit
+  #
+  # Audits transitive packages on the .NET 8 stack (src/VetCare.*, tests/VetCare.*).
+  # legacy/VetCare.LegacyReports is intentionally excluded: it is an
+  # isolated net48 console that depends on iTextSharp 5.5.13.3, which
+  # transitively pulls BouncyCastle 1.8.9 (3 MODERATE CVEs). Migration to
+  # iText7 + BouncyCastle.Cryptography 2.x is a future milestone, not a
+  # hardening fix. Until then, the legacy project is excluded from this gate.
+  # Threat model: the legacy reporter has no untrusted input path, so the
+  # CVE is not reachable in normal operation.
+  vulnerability-audit:
+    name: Vulnerability Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore VetCare.sln
+
+      - name: Audit .NET 8 projects for vulnerable transitives
+        run: |
+          set -o pipefail
+          projects=(
+            src/VetCare.Domain/VetCare.Domain.csproj
+            src/VetCare.Application/VetCare.Application.csproj
+            src/VetCare.Infrastructure/VetCare.Infrastructure.csproj
+            src/VetCare.Api/VetCare.Api.csproj
+            tests/VetCare.Domain.UnitTests/VetCare.Domain.UnitTests.csproj
+            tests/VetCare.Application.UnitTests/VetCare.Application.UnitTests.csproj
+            tests/VetCare.Infrastructure.IntegrationTests/VetCare.Infrastructure.IntegrationTests.csproj
+          )
+          : > audit.txt
+          for proj in "${projects[@]}"; do
+            echo "=== $proj ===" | tee -a audit.txt
+            dotnet list "$proj" package --vulnerable --include-transitive 2>&1 | tee -a audit.txt
+          done
+          if grep -q "has the following vulnerable packages" audit.txt; then
+            echo "::error::Vulnerable packages detected in .NET 8 projects"
+            exit 1
+          fi
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulnerability-audit-report
+          path: audit.txt
+
   legacy-build:
     name: Legacy Build
     runs-on: windows-latest
@@ -52,7 +106,8 @@ jobs:
           global-json-file: global.json
 
       - name: Build LegacyReports
-        run: dotnet build legacy/VetCare.LegacyReports/VetCare.LegacyReports.csproj --configuration Release
+        run: dotnet build legacy/VetCare.LegacyReports/VetCare.LegacyReports.csproj
+          --configuration Release
 
   e2e:
     name: E2E (Newman)
@@ -121,7 +176,8 @@ jobs:
         run: dotnet tool restore
 
       - name: Apply EF Core migrations
-        run: dotnet ef database update --project src/VetCare.Infrastructure --startup-project src/VetCare.Infrastructure
+        run: dotnet ef database update --project src/VetCare.Infrastructure
+          --startup-project src/VetCare.Infrastructure
 
       - name: Build API
         run: dotnet build src/VetCare.Api/VetCare.Api.csproj --configuration Release
@@ -147,7 +203,8 @@ jobs:
           exit 1
 
       - name: Run Newman collection
-        run: newman run docs/e2e/vetcare.collection.json --env-var baseUrl=http://localhost:5000
+        run: newman run docs/e2e/vetcare.collection.json --env-var
+          baseUrl=http://localhost:5000
 
       - name: Stop API
         if: always()
