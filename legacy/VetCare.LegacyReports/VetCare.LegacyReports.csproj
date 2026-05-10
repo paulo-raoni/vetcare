@@ -21,6 +21,9 @@
     <PackageReference Include="EntityFramework" Version="6.5.1" />
     <PackageReference Include="iTextSharp" Version="5.5.13.3" />
     <PackageReference Include="Npgsql" Version="4.1.13" />
+    <!-- Direct override for vulnerable transitive pulled in by iTextSharp 5.5.13.3.
+         System.Text.Encodings.Web 4.6.0 : GHSA-ghhp-997w-qr28 (Critical). -->
+    <PackageReference Include="System.Text.Encodings.Web" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
