@@ -8,4 +8,9 @@ public sealed record VaccinationRecordedEvent(
     Guid PetId,
     string VaccineName,
     DateTime AdministeredAt,
-    DateTime? NextDueAt) : IDomainEvent;
+    DateTime? NextDueAt) : IDomainEvent
+{
+    public Guid EventId { get; init; } = Guid.NewGuid();
+
+    public DateTime OccurredOnUtc { get; init; } = DateTime.UtcNow;
+}

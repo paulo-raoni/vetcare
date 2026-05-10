@@ -4,7 +4,7 @@ namespace VetCare.Domain.Primitives;
 
 public interface IDomainEvent : INotification
 {
-    Guid EventId => Guid.NewGuid();
+    Guid EventId { get; }
 
-    DateTime OccurredOn => DateTime.UtcNow;
+    DateTime OccurredOnUtc { get; }
 }

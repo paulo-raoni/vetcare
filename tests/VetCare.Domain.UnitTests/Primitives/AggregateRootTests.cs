@@ -9,7 +9,12 @@ public sealed class AggregateRootTests
     {
     }
 
-    private sealed record TestEvent(string Name) : IDomainEvent;
+    private sealed record TestEvent(string Name) : IDomainEvent
+    {
+        public Guid EventId { get; init; } = Guid.NewGuid();
+
+        public DateTime OccurredOnUtc { get; init; } = DateTime.UtcNow;
+    }
 
     [Fact]
     public void AddDomainEvent_appends_to_collection()
