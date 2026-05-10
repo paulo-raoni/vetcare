@@ -32,4 +32,8 @@
     <ProjectReference Include="..\VetCare.Domain\VetCare.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="VetCare.Infrastructure.IntegrationTests" />
+  </ItemGroup>
+
 </Project>

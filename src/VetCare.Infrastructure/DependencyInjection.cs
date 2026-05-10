@@ -57,16 +57,16 @@ public static class DependencyInjection
 
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))
-            .Validate(o => !string.IsNullOrWhiteSpace(o.Secret), "Jwt:Secret is required.")
-            .Validate(o => !string.IsNullOrWhiteSpace(o.Issuer), "Jwt:Issuer is required.")
-            .Validate(o => !string.IsNullOrWhiteSpace(o.Audience), "Jwt:Audience is required.")
-            .Validate(o => o.ExpiryMinutes > 0, "Jwt:ExpiryMinutes must be > 0.")
+            .AddJwtOptionsValidation()
             .ValidateOnStart();
 
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
         services.AddOptions<AwsOptions>()
-            .Bind(configuration.GetSection(AwsOptions.SectionName));
+            .Bind(configuration.GetSection(AwsOptions.SectionName))
+            .ValidateOnStart();
+
+        services.AddSingleton<IValidateOptions<AwsOptions>, AwsOptionsProductionValidator>();
 
         services.AddSingleton<IAmazonSQS>(sp =>
         {
