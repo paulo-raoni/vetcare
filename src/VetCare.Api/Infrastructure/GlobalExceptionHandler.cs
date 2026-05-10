@@ -2,6 +2,8 @@ using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using VetCare.Application.Common.Exceptions;
 using VetCare.Domain.Primitives;
 
@@ -70,6 +72,25 @@ internal sealed class GlobalExceptionHandler : IExceptionHandler
                         Type = "https://tools.ietf.org/html/rfc7231#section-6.5.8",
                         Title = "Domain rule violation.",
                         Detail = domain.Message,
+                    };
+
+                    return await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+                    {
+                        HttpContext = httpContext,
+                        ProblemDetails = problem,
+                        Exception = exception,
+                    });
+                }
+
+            case DbUpdateException { InnerException: PostgresException { SqlState: "23503" } }:
+                {
+                    httpContext.Response.StatusCode = StatusCodes.Status409Conflict;
+                    var problem = new ProblemDetails
+                    {
+                        Status = StatusCodes.Status409Conflict,
+                        Type = "https://tools.ietf.org/html/rfc7231#section-6.5.8",
+                        Title = "Cannot delete resource because it is referenced by other entities.",
+                        Detail = "The resource has dependent records.",
                     };
 
                     return await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
