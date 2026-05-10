@@ -67,14 +67,14 @@ public sealed class VetCareWebApplicationFactory : WebApplicationFactory<Program
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment("Development");
 
         builder.ConfigureAppConfiguration((_, config) =>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] = _postgres.GetConnectionString(),
-                ["Jwt:Secret"] = "test-secret-test-secret-test-secret-test-secret-32bytes!!",
+                ["Jwt:Secret"] = "integration-test-secret-X7$kP3@nE9!aL5Z2bM%qFwY8&jR-vU#oT",
                 ["Jwt:Issuer"] = "vetcare-tests",
                 ["Jwt:Audience"] = "vetcare-tests",
                 ["Jwt:ExpiryMinutes"] = "30",
