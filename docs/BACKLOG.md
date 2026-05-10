@@ -22,10 +22,26 @@ candidates for a future milestone or hardening pass.
   cover S3 — the pet-photo upload (`POST /api/v1/pets/{id}/photo`) is not in
   the collection. Adding a multipart-upload step plus a LocalStack S3
   round-trip assertion would close the gap.
-- **Outbox pattern for domain-event reliability.** Promoted to M8 (proposed) —
-  see `docs/decisions/M8.md` and ADR-009. (Original gap: `VetCareDbContext.SaveChangesAsync`
-  collects domain events and dispatches them via MediatR after commit, so a
-  process crash between commit and publish loses the SQS message.)
+- **Outbox pattern for domain-event reliability.** ✅ Delivered in M8
+  (four PRs: `feat/m8-outbox-domain-event-metadata` →
+  `feat/m8-outbox-table-and-write-path` → `feat/m8-outbox-worker` →
+  `feat/m8-outbox-cutover`). The reliability gap ADR-006 documented
+  is closed: events are written to `outbox_messages` in the same EF
+  transaction as the aggregate change and drained by an
+  `OutboxProcessor : BackgroundService` with persistent exponential
+  backoff (1s base, 30s ceiling), poison-row exclusion at
+  `MaxAttempts`, and multi-instance safety via
+  `SELECT ... FOR UPDATE SKIP LOCKED`. See ADR-009 in
+  `docs/DECISIONS.md` and the implementation summary in
+  `docs/decisions/M8.md`.
+- **Mongo-audited dead-letter table for outbox poison rows.** When an
+  outbox row reaches `MaxAttempts` it is excluded from future polls
+  and warning-logged, but the row stays in `outbox_messages`
+  indefinitely with no inspection path. A future milestone could
+  move poison rows to a dedicated `outbox_poison` table with the
+  failure history and surface them through the Mongo audit log so
+  operators can replay or discard them deliberately. Natural
+  continuation of the M8 work.
 
 ## Authentication & authorization
 
@@ -45,8 +61,12 @@ candidates for a future milestone or hardening pass.
 
 ## Domain modelling
 
-- **Domain events with stable `EventId` / `OccurredOn`.** Absorbed into M8
-  (proposed) as a prerequisite — see `docs/decisions/M8.md`.
+- **Domain events with stable `EventId` / `OccurredOn`.** ✅ Delivered as
+  PR (1) of M8. `IDomainEvent` now exposes abstract `EventId` and
+  `OccurredOnUtc` (renamed from `OccurredOn` to make the UTC contract
+  explicit) with `init`-set implementations on the six event records,
+  so values are stable across reads and round-trippable through
+  `System.Text.Json` for outbox storage.
 - **Clean Architecture: remove EF DbSet from Application interface.** The
   `IRepository<T>` abstraction is clean, but a few Application-layer touch
   points still surface EF concepts indirectly (e.g. `IQueryable` in the spec

@@ -1,6 +1,6 @@
 # VetCare — Progress
 
-## M8 — Transactional Outbox (proposed)
+## M8 — Transactional Outbox (delivered)
 
 - **Closes the ADR-006 reliability gap.** ADR-006 records that the SQS publish in `VetCareDbContext.SaveChangesAsync` runs post-commit but not transactionally; M8 promotes the outbox follow-up out of `BACKLOG.md` into a concrete milestone so a crash between commit and publish no longer drops the SQS message.
 - **Four-PR implementation order.** (1) `feat/m8-outbox-domain-event-metadata` adds stable `EventId` / `OccurredOnUtc` to `IDomainEvent` and the six event types; (2) `feat/m8-outbox-table-and-write-path` adds `OutboxMessage` + the migration + the `SaveChangesAsync` write, while keeping the existing post-commit publish so production behavior is unchanged; (3) `feat/m8-outbox-worker` adds `OutboxProcessor` + `OutboxOptions`; (4) `feat/m8-outbox-cutover` removes the post-commit publish so the worker becomes the only delivery path.
@@ -11,6 +11,18 @@
 - **Test strategy.** Domain unit tests cover the `IDomainEvent` constructor + per-event JSON round-trip; Application tests cover the `SaveChangesAsync` write path (happy + no-events); Testcontainers integration tests cover failing-publisher → outbox row + `Error` + `Attempts == 1`, recovery → `ProcessedOnUtc` set, and exceeding `MaxAttempts` → poison + warning logged. Newman E2E exercises the worker indirectly through the existing schedule/confirm/complete flow.
 - **Risks.** `Type.GetType(assemblyQualifiedName)` is fragile to renames or assembly moves (mitigation: optional registry, future-proofing only); poison rows accumulate without a dead-letter table (out of scope for M8); the worker shares the request-path Postgres — small batch + indexed scan + 2 s poll keeps pressure low, revisit if integration timing surfaces contention.
 - **Docs-only proposal; gates remain at the post-Fix-1 baseline (105 tests, 0 source changes).** This entry adds `docs/decisions/M8.md` and ADR-009 plus pointers in `BACKLOG.md`; no `.cs`, `.csproj`, `.props`, `.yml`, or `.json` file is touched. Implementation gates apply only when PR (1) lands.
+- **Delivery summary.** Four PRs landed back-to-back:
+  `feat/m8-outbox-domain-event-metadata` (PR 1, +44/-9 across 9 files;
+  Domain tests 27 → 39), `feat/m8-outbox-table-and-write-path`
+  (PR 2, 7 files; Integration tests 42 → 45),
+  `feat/m8-outbox-worker` (PR 3, 13 files; Integration tests 45 → 50,
+  includes a follow-up migration `AddOutboxMessageNextAttemptOnUtc`
+  for persistent backoff), and `feat/m8-outbox-cutover` (PR 4, 2
+  files, removes the post-commit publish so the worker becomes the
+  sole delivery path). Final gates clean: 0 warnings, 0 errors,
+  Domain 39 + Application 36 + Integration 50, lint pass. ADR-009
+  flipped to Accepted; outbox entry in `BACKLOG.md` flipped to
+  delivered with a dead-letter follow-up promoted in its place.
 
 ## feat/testcontainers — Real Postgres + Mongo in integration tests (in delivery)
 

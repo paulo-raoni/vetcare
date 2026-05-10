@@ -34,7 +34,7 @@ VetCare models the day-to-day workflow of a veterinary clinic — registering tu
 - **CQRS via MediatR** with a `ValidationBehavior` (FluentValidation) and `AuditBehavior` pipeline.
 - **Multi-tenancy** through EF Core global query filters bound to `ITenantProvider` — single point of isolation enforcement.
 - **JWT bearer + BCrypt** authentication with role-based policies (`AdminOnly`, `VetOrAdmin`, `AnyStaff`).
-- **Domain events** dispatched after `SaveChangesAsync` and fanned out to **AWS SQS** for asynchronous consumers.
+- **Transactional outbox for domain-event delivery** — events are persisted in `outbox_messages` in the same EF transaction as the aggregate change, then drained by an `OutboxProcessor : BackgroundService` that publishes via the in-process `IPublisher` and fans out to **AWS SQS**. At-least-once delivery, multi-instance-safe via `SELECT ... FOR UPDATE SKIP LOCKED`, with persistent exponential backoff and poison-row exclusion.
 - **MongoDB audit log** capturing every successful command (action, tenant, user, payload).
 - **AWS S3** photo storage with magic-byte sniffing on upload.
 - **Specification pattern** over a generic `IRepository<T>` for composable, testable queries.
@@ -113,7 +113,7 @@ VetCare follows Clean Architecture: dependencies point inward, the domain has no
 │   └── vetcare-web/                 React 18 + TypeScript + Vite (M6, in progress).
 ├── docs/
 │   ├── PROGRESS.md                  Per-milestone delivery log.
-│   ├── DECISIONS.md                 Architectural decision records (ADR-001 … ADR-008).
+│   ├── DECISIONS.md                 Architectural decision records (ADR-001 … ADR-009).
 │   ├── BACKLOG.md                   Deferred ideas — explicitly not committed scope.
 │   ├── decisions/                   Per-decision detail files.
 │   └── e2e/                         Newman/Postman collection + e2e README.
@@ -293,7 +293,7 @@ Anonymous calls to authenticated endpoints get **401**; authenticated calls with
 
 ## 7. Key design decisions
 
-The five most consequential decisions, summarised. Full ADRs (with context, decision, and consequences) are in [`docs/DECISIONS.md`](./docs/DECISIONS.md).
+The six most consequential decisions, summarised. Full ADRs (with context, decision, and consequences) are in [`docs/DECISIONS.md`](./docs/DECISIONS.md).
 
 **ADR-001 — Clean Architecture layer separation.** Four projects with one-way references: `Domain` (no deps), `Application` → Domain, `Infrastructure` → Application + Domain, `Api` references all three. Dependency rules are enforced by project references rather than analyzers. The cost is mild boilerplate for end-to-end features; the payoff is a domain that is unit-testable without a host and infrastructure concerns that never leak upward.
 
@@ -303,7 +303,9 @@ The five most consequential decisions, summarised. Full ADRs (with context, deci
 
 **ADR-004 — MongoDB for the audit log.** Audit entries are write-heavy and schema-flexible (payload shape varies per command); pushing them into the relational schema would force a migration on every payload change. `AuditBehavior` captures successful commands into MongoDB through `IAuditRepository`; failures inside the audit store are swallowed with a warning so the request never fails because audit is down.
 
-**ADR-006 — SQS for asynchronous appointment events.** Domain events (`AppointmentScheduledEvent`, `AppointmentCancelledEvent`) are dispatched after `SaveChangesAsync` and fanned out to `appointment-reminders` / `appointment-cancellations` via `ISqsPublisher`. This decouples the API request from notification side-effects. The known reliability gap — publish is post-commit but not transactional — is tracked as the *outbox pattern* item in [`docs/BACKLOG.md`](./docs/BACKLOG.md).
+**ADR-006 — SQS for asynchronous appointment events.** Domain events (`AppointmentScheduledEvent`, `AppointmentCancelledEvent`) are fanned out to `appointment-reminders` / `appointment-cancellations` via `ISqsPublisher`, decoupling the API request from notification side-effects. The original post-commit publish path was not transactional — that gap is closed by ADR-009 below.
+
+**ADR-009 — Transactional outbox for at-least-once delivery.** Closes the ADR-006 gap. Domain events are persisted in `outbox_messages` inside the same EF transaction as the aggregate change, then drained by an `OutboxProcessor : BackgroundService` that hydrates events via `Type.GetType` + `System.Text.Json` and dispatches through the in-process `IPublisher` (which fans out to `ISqsPublisher`). Multi-instance safety comes from `SELECT ... FOR UPDATE SKIP LOCKED` on the batch read. Failures are persisted with exponential backoff (1s base, 30s ceiling) up to `MaxAttempts`; rows beyond that are excluded from future polls and surfaced via warning logs. Idempotency moves to the consumer side (documented).
 
 ---
 
@@ -353,7 +355,7 @@ A delivery where any gate fails is not a delivery. Every PR must pass all three 
 Deferred ideas and improvements — not committed scope. See [`docs/BACKLOG.md`](./docs/BACKLOG.md) for the full list.
 
 - **LocalStack-backed S3 + SQS in integration tests.** Postgres + Mongo are now real containers via Testcontainers, but `IAmazonS3` / `ISqsPublisher` remain NSubstitute fakes. Bringing LocalStack into Testcontainers (queue + bucket bootstrap, region/credential wiring) would close the last gap; the Newman E2E job already exercises the real drivers end-to-end against docker-compose.
-- **Outbox pattern for domain-event reliability.** Persist domain events in an `outbox` table inside the same transaction as the aggregate write, then drain to SQS via a worker — closes the post-commit-publish gap noted in ADR-006.
+- **Mongo-audited dead-letter table for outbox poison rows.** When an outbox message reaches `MaxAttempts` it is excluded from future polls and warning-logged but stays in the table. A future milestone could move poison rows to a dedicated table with failure history and surface them through the audit log for operator inspection and deliberate replay/discard.
 - **Rate limiting + lockout on auth endpoints.** Add ASP.NET Core rate limiting (per-IP and per-account) and a soft lockout after N failures on `POST /auth/login` and `POST /auth/register`.
 
 ---
