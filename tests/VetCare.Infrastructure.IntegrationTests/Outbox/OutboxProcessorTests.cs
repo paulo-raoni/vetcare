@@ -108,6 +108,52 @@ public sealed class OutboxProcessorTests : IAsyncLifetime
         row.ProcessedOnUtc.Should().BeNull();
     }
 
+    [Fact]
+    public async Task ProcessOnceAsync_recovers_after_publish_failure_when_next_attempt_elapses()
+    {
+        _factory.ClearSubstitutes();
+        ConfigureSqsToThrow();
+
+        var rowId = await SeedOutboxRowAsync();
+        var processor = _factory.Services.GetRequiredService<OutboxProcessor>();
+
+        await processor.ProcessOnceAsync(default);
+
+        await using (var failureScope = _factory.Services.CreateAsyncScope())
+        {
+            var failureDb = failureScope.ServiceProvider.GetRequiredService<VetCareDbContext>();
+            var failed = await failureDb.OutboxMessages.SingleAsync(o => o.Id == rowId);
+
+            failed.Attempts.Should().Be(1);
+            failed.ProcessedOnUtc.Should().BeNull();
+            failed.Error.Should().NotBeNullOrEmpty();
+            failed.NextAttemptOnUtc.Should().NotBeNull();
+            failed.NextAttemptOnUtc!.Value.Should().BeAfter(DateTime.UtcNow);
+        }
+
+        _factory.ClearSubstitutes();
+
+        await using (var resetScope = _factory.Services.CreateAsyncScope())
+        {
+            var resetDb = resetScope.ServiceProvider.GetRequiredService<VetCareDbContext>();
+            var row = await resetDb.OutboxMessages.SingleAsync(o => o.Id == rowId);
+            row.NextAttemptOnUtc = DateTime.UtcNow.AddSeconds(-1);
+            await resetDb.SaveChangesAsync();
+        }
+
+        await processor.ProcessOnceAsync(default);
+
+        await using (var successScope = _factory.Services.CreateAsyncScope())
+        {
+            var successDb = successScope.ServiceProvider.GetRequiredService<VetCareDbContext>();
+            var recovered = await successDb.OutboxMessages.SingleAsync(o => o.Id == rowId);
+
+            recovered.ProcessedOnUtc.Should().NotBeNull();
+            recovered.Attempts.Should().Be(1);
+            recovered.Error.Should().BeNull();
+        }
+    }
+
     private async Task<Guid> SeedOutboxRowAsync(
         DateTime? nextAttemptOnUtc = null,
         int attempts = 0)
