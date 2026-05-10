@@ -22,12 +22,10 @@ candidates for a future milestone or hardening pass.
   cover S3 — the pet-photo upload (`POST /api/v1/pets/{id}/photo`) is not in
   the collection. Adding a multipart-upload step plus a LocalStack S3
   round-trip assertion would close the gap.
-- **Outbox pattern for domain-event reliability.** `VetCareDbContext.SaveChangesAsync`
-  collects domain events and dispatches them via MediatR after commit. If the
-  process dies between commit and publish, the SQS message is lost. Persist
-  events in an `outbox` table inside the same transaction and have a worker
-  drain them — one of the items the audit log decision (ADR-004) deliberately
-  punted on.
+- **Outbox pattern for domain-event reliability.** Promoted to M8 (proposed) —
+  see `docs/decisions/M8.md` and ADR-009. (Original gap: `VetCareDbContext.SaveChangesAsync`
+  collects domain events and dispatches them via MediatR after commit, so a
+  process crash between commit and publish loses the SQS message.)
 
 ## Authentication & authorization
 
@@ -47,10 +45,8 @@ candidates for a future milestone or hardening pass.
 
 ## Domain modelling
 
-- **Domain events with stable `EventId` / `OccurredOn`.** Events currently
-  carry only their domain payload. Adding `Guid EventId { get; }` and
-  `DateTime OccurredOn { get; }` (set in the event constructor) is a
-  prerequisite for the outbox above and for downstream idempotency.
+- **Domain events with stable `EventId` / `OccurredOn`.** Absorbed into M8
+  (proposed) as a prerequisite — see `docs/decisions/M8.md`.
 - **Clean Architecture: remove EF DbSet from Application interface.** The
   `IRepository<T>` abstraction is clean, but a few Application-layer touch
   points still surface EF concepts indirectly (e.g. `IQueryable` in the spec
