@@ -219,16 +219,21 @@ isolation, idempotency stance, or in-process notification handlers.
 events as `OutboxMessage` rows in the same EF transaction as the originating
 aggregate change, and drain the table with a hosted `OutboxProcessor` that
 calls the in-process `IPublisher`. `IDomainEvent` gains stable
-`Guid EventId` and `DateTime OccurredOnUtc` properties (constructor-set,
-replacing the unstable default-implemented getters) so events round-trip
-through `jsonb` storage with consistent identity. The cutover is staged across
+`Guid EventId` and `DateTime OccurredOnUtc` properties — implemented as
+init-set properties with default initializers, so values are captured at
+construction time and immutable thereafter, replacing the previous
+default-implemented getters that returned fresh values on every read — so
+events round-trip through `jsonb` storage with consistent identity. The cutover is staged across
 four PRs: metadata change, dual-write, worker, and removal of the post-commit
 publish — see `docs/decisions/M8.md` for the full data model, worker
 semantics, and test plan.
 
-**Consequences.** At-least-once delivery becomes a CI-verifiable property via
-a Testcontainers Postgres test that simulates a publisher failure across the
-commit boundary. The `(ProcessedOnUtc, OccurredOnUtc)` index keeps the
+**Consequences.** At-least-once delivery is a structural property of the
+design after the PR (4) cutover — the same EF transaction commits both the
+aggregate change and the `OutboxMessage` row, with no out-of-transaction
+publish step that could lose the message. `OutboxWritePathTests`
+(transactional landing) and `OutboxProcessorTests` (drain + retry + recovery)
+cover the moving parts. The `(ProcessedOnUtc, OccurredOnUtc)` index keeps the
 worker's batch scan cheap; `SELECT ... FOR UPDATE SKIP LOCKED` makes the
 design safe for multi-instance deploys. The `IDomainEvent` shape change is
 breaking for any external producer of these events (there are none today).
