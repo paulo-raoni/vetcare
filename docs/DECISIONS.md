@@ -196,3 +196,43 @@ queries skip change-tracker overhead while command handlers keep tracked
 loads. Trade-off: complex projections (e.g. cross-aggregate joins for
 reporting) still need a non-spec escape hatch — the legacy EF6 console
 sidesteps the spec layer entirely.
+
+---
+
+### [ADR-009] Transactional outbox for domain-event delivery
+
+- **Date:** 2026-05-10
+- **Status:** Proposed
+
+**Context.** ADR-006 introduced SQS as the asynchronous transport for
+appointment events but explicitly recorded a reliability gap: the publish is
+post-commit but not transactional. `VetCareDbContext.SaveChangesAsync` collects
+domain events from tracked aggregates, commits the EF transaction, and only
+then dispatches via MediatR `IPublisher` — so a process crash between commit
+and publish drops the SQS message, with no way to recover the lost
+notification. The existing audit log (ADR-004) does not mitigate this; it
+captures successful command executions, not domain events. The portfolio
+target is at-least-once delivery without weakening the existing tenant
+isolation, idempotency stance, or in-process notification handlers.
+
+**Decision.** Promote the outbox follow-up into milestone M8: persist domain
+events as `OutboxMessage` rows in the same EF transaction as the originating
+aggregate change, and drain the table with a hosted `OutboxProcessor` that
+calls the in-process `IPublisher`. `IDomainEvent` gains stable
+`Guid EventId` and `DateTime OccurredOnUtc` properties (constructor-set,
+replacing the unstable default-implemented getters) so events round-trip
+through `jsonb` storage with consistent identity. The cutover is staged across
+four PRs: metadata change, dual-write, worker, and removal of the post-commit
+publish — see `docs/decisions/M8.md` for the full data model, worker
+semantics, and test plan.
+
+**Consequences.** At-least-once delivery becomes a CI-verifiable property via
+a Testcontainers Postgres test that simulates a publisher failure across the
+commit boundary. The `(ProcessedOnUtc, OccurredOnUtc)` index keeps the
+worker's batch scan cheap; `SELECT ... FOR UPDATE SKIP LOCKED` makes the
+design safe for multi-instance deploys. The `IDomainEvent` shape change is
+breaking for any external producer of these events (there are none today).
+Trade-offs: idempotency moves to the consumer side (documented), poison rows
+accumulate until a future Mongo-audited dead-letter table is added, and the
+worker shares the request-path Postgres instance — pressure to be revisited if
+integration timing surfaces contention.
