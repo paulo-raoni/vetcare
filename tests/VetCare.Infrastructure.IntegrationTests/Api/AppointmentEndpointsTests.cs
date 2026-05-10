@@ -2,12 +2,14 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using VetCare.Application.Abstractions.Messaging;
 using VetCare.Application.Appointments.Events;
 using VetCare.Domain.Appointments;
 using VetCare.Domain.Pets;
 using VetCare.Domain.Users;
+using VetCare.Infrastructure.Outbox;
 
 namespace VetCare.Infrastructure.IntegrationTests.Api;
 
@@ -130,6 +132,9 @@ public sealed class AppointmentEndpointsTests
         appointment.Should().NotBeNull();
         appointment!.PetId.Should().Be(pet.Id);
         appointment.Status.Should().Be(AppointmentStatus.Scheduled);
+
+        var processor = _factory.Services.GetRequiredService<OutboxProcessor>();
+        await processor.ProcessOnceAsync(default);
 
         await _factory.SqsPublisher.Received().PublishAsync(
             QueueNames.AppointmentReminders,

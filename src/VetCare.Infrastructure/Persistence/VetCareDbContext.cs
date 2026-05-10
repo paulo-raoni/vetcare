@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VetCare.Application.Abstractions.MultiTenancy;
 using VetCare.Application.Abstractions.Persistence;
@@ -19,13 +18,11 @@ public sealed class VetCareDbContext : DbContext, IVetCareDbContext
     public const string Schema = "vetcare";
 
     private readonly ITenantProvider _tenantProvider;
-    private readonly IPublisher? _publisher;
 
-    public VetCareDbContext(DbContextOptions<VetCareDbContext> options, ITenantProvider tenantProvider, IPublisher? publisher = null)
+    public VetCareDbContext(DbContextOptions<VetCareDbContext> options, ITenantProvider tenantProvider)
         : base(options)
     {
         _tenantProvider = tenantProvider;
-        _publisher = publisher;
     }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
@@ -78,17 +75,7 @@ public sealed class VetCareDbContext : DbContext, IVetCareDbContext
             }
         }
 
-        var result = await base.SaveChangesAsync(cancellationToken);
-
-        if (_publisher is not null)
-        {
-            foreach (var domainEvent in domainEvents)
-            {
-                await _publisher.Publish(domainEvent, cancellationToken);
-            }
-        }
-
-        return result;
+        return await base.SaveChangesAsync(cancellationToken);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
