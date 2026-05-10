@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VetCare.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using VetCare.Infrastructure.Persistence;
 namespace VetCare.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(VetCareDbContext))]
-    partial class VetCareDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260510202811_AddOutboxMessageNextAttemptOnUtc")]
+    partial class AddOutboxMessageNextAttemptOnUtc
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

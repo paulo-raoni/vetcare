@@ -34,6 +34,8 @@ public sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outbox
             .HasDefaultValue(0)
             .IsRequired();
 
+        builder.Property(o => o.NextAttemptOnUtc);
+
         builder.HasIndex(o => new { o.ProcessedOnUtc, o.OccurredOnUtc })
             .HasDatabaseName("IX_outbox_messages_ProcessedOnUtc_OccurredOnUtc");
     }

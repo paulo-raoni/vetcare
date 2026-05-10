@@ -17,4 +17,6 @@ public sealed class OutboxMessage
     public string? Error { get; set; }
 
     public int Attempts { get; set; }
+
+    public DateTime? NextAttemptOnUtc { get; set; }
 }
