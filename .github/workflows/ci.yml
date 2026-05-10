@@ -2,17 +2,17 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
     paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.env.example'
+      - "**.md"
+      - "docs/**"
+      - ".env.example"
   pull_request:
-    branches: [main]
+    branches: [ main ]
     paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.env.example'
+      - "**.md"
+      - "docs/**"
+      - ".env.example"
 
 jobs:
   build-and-test:
@@ -42,8 +42,8 @@ jobs:
   # vulnerability-audit
   #
   # Audits transitive packages on the .NET 8 stack (src/VetCare.*, tests/VetCare.*).
-  # legacy/VetCare.LegacyReports is intentionally excluded: it is an isolated
-  # net48 console (CLAUDE.md §4) that depends on iTextSharp 5.5.13.3, which
+  # legacy/VetCare.LegacyReports is intentionally excluded: it is an
+  # isolated net48 console that depends on iTextSharp 5.5.13.3, which
   # transitively pulls BouncyCastle 1.8.9 (3 MODERATE CVEs). Migration to
   # iText7 + BouncyCastle.Cryptography 2.x is a future milestone, not a
   # hardening fix. Until then, the legacy project is excluded from this gate.
@@ -106,7 +106,8 @@ jobs:
           global-json-file: global.json
 
       - name: Build LegacyReports
-        run: dotnet build legacy/VetCare.LegacyReports/VetCare.LegacyReports.csproj --configuration Release
+        run: dotnet build legacy/VetCare.LegacyReports/VetCare.LegacyReports.csproj
+          --configuration Release
 
   e2e:
     name: E2E (Newman)
@@ -175,7 +176,8 @@ jobs:
         run: dotnet tool restore
 
       - name: Apply EF Core migrations
-        run: dotnet ef database update --project src/VetCare.Infrastructure --startup-project src/VetCare.Infrastructure
+        run: dotnet ef database update --project src/VetCare.Infrastructure
+          --startup-project src/VetCare.Infrastructure
 
       - name: Build API
         run: dotnet build src/VetCare.Api/VetCare.Api.csproj --configuration Release
@@ -201,7 +203,8 @@ jobs:
           exit 1
 
       - name: Run Newman collection
-        run: newman run docs/e2e/vetcare.collection.json --env-var baseUrl=http://localhost:5000
+        run: newman run docs/e2e/vetcare.collection.json --env-var
+          baseUrl=http://localhost:5000
 
       - name: Stop API
         if: always()
