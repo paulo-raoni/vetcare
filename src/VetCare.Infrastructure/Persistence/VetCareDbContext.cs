@@ -48,30 +48,34 @@ public sealed class VetCareDbContext : DbContext, IVetCareDbContext
             .Select(e => e.Entity)
             .ToList();
 
-        var domainEvents = aggregates.SelectMany(a => a.DomainEvents).ToList();
-        foreach (var aggregate in aggregates)
+        if (aggregates.Count > 0)
         {
-            aggregate.ClearDomainEvents();
-        }
-
-        if (domainEvents.Count > 0)
-        {
-            var tenantId = _tenantProvider.HasTenant ? _tenantProvider.TenantId : Guid.Empty;
-
-            foreach (var domainEvent in domainEvents)
+            foreach (var aggregate in aggregates)
             {
-                var eventType = domainEvent.GetType();
-                OutboxMessages.Add(new OutboxMessage
+                var aggregateTenantId = aggregate is ITenantEntity tenantEntity
+                    ? tenantEntity.TenantId
+                    : (_tenantProvider.HasTenant ? _tenantProvider.TenantId : Guid.Empty);
+
+                foreach (var domainEvent in aggregate.DomainEvents)
                 {
-                    Id = domainEvent.EventId,
-                    OccurredOnUtc = domainEvent.OccurredOnUtc,
-                    Type = eventType.AssemblyQualifiedName!,
-                    Content = JsonSerializer.Serialize(domainEvent, eventType),
-                    TenantId = tenantId,
-                    ProcessedOnUtc = null,
-                    Error = null,
-                    Attempts = 0,
-                });
+                    var eventType = domainEvent.GetType();
+                    OutboxMessages.Add(new OutboxMessage
+                    {
+                        Id = domainEvent.EventId,
+                        OccurredOnUtc = domainEvent.OccurredOnUtc,
+                        Type = eventType.AssemblyQualifiedName!,
+                        Content = JsonSerializer.Serialize(domainEvent, eventType),
+                        TenantId = aggregateTenantId,
+                        ProcessedOnUtc = null,
+                        Error = null,
+                        Attempts = 0,
+                    });
+                }
+            }
+
+            foreach (var aggregate in aggregates)
+            {
+                aggregate.ClearDomainEvents();
             }
         }
 

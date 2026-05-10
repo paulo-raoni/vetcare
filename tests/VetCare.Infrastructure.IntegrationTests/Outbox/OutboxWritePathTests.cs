@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using VetCare.Application.Abstractions.MultiTenancy;
 using VetCare.Domain.Owners;
 using VetCare.Domain.Pets;
 using VetCare.Domain.Tenants;
@@ -42,9 +43,43 @@ public sealed class OutboxWritePathTests
 
         row.Type.Should().Contain(nameof(OwnerCreatedEvent));
         row.Content.Should().Contain(owner.Id.ToString());
+        row.TenantId.Should().Be(tenant.Id);
         row.ProcessedOnUtc.Should().BeNull();
         row.Error.Should().BeNull();
         row.Attempts.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task SaveChangesAsync_outbox_row_uses_aggregate_TenantId_not_ambient_provider()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<VetCareDbContext>();
+        var ambient = scope.ServiceProvider.GetRequiredService<ITenantProvider>();
+
+        // Guard the invariant the bug exploited: in a DI-direct-resolve
+        // path with no HttpContext, the ambient provider has no tenant.
+        // If this guard ever flips, the test below is no longer
+        // exercising the scenario it claims to.
+        ambient.HasTenant.Should().BeFalse();
+
+        var tenant = await SeedTenantAsync(db);
+
+        var owner = new Owner(
+            tenant.Id,
+            "Tenant-Source Owner",
+            "+5511999999998",
+            $"tenant-source-{Guid.NewGuid():N}@test");
+        db.Owners.Add(owner);
+
+        await db.SaveChangesAsync();
+
+        var row = await db.OutboxMessages
+            .Where(o => o.Type.Contains(nameof(OwnerCreatedEvent)))
+            .OrderByDescending(o => o.OccurredOnUtc)
+            .FirstAsync();
+
+        row.TenantId.Should().Be(tenant.Id);
+        row.TenantId.Should().NotBe(Guid.Empty);
     }
 
     [Fact]
