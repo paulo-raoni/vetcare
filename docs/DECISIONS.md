@@ -202,7 +202,7 @@ sidesteps the spec layer entirely.
 ### [ADR-009] Transactional outbox for domain-event delivery
 
 - **Date:** 2026-05-10
-- **Status:** Proposed
+- **Status:** Accepted
 
 **Context.** ADR-006 introduced SQS as the asynchronous transport for
 appointment events but explicitly recorded a reliability gap: the publish is
