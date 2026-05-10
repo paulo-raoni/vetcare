@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VetCare.Application.Abstractions.MultiTenancy;
@@ -9,6 +10,7 @@ using VetCare.Domain.Primitives;
 using VetCare.Domain.Tenants;
 using VetCare.Domain.Users;
 using VetCare.Domain.Vaccinations;
+using VetCare.Infrastructure.Outbox;
 
 namespace VetCare.Infrastructure.Persistence;
 
@@ -38,6 +40,8 @@ public sealed class VetCareDbContext : DbContext, IVetCareDbContext
 
     public DbSet<Vaccination> Vaccinations => Set<Vaccination>();
 
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
     internal Guid CurrentTenantId => _tenantProvider.HasTenant ? _tenantProvider.TenantId : Guid.Empty;
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -51,6 +55,27 @@ public sealed class VetCareDbContext : DbContext, IVetCareDbContext
         foreach (var aggregate in aggregates)
         {
             aggregate.ClearDomainEvents();
+        }
+
+        if (domainEvents.Count > 0)
+        {
+            var tenantId = _tenantProvider.HasTenant ? _tenantProvider.TenantId : Guid.Empty;
+
+            foreach (var domainEvent in domainEvents)
+            {
+                var eventType = domainEvent.GetType();
+                OutboxMessages.Add(new OutboxMessage
+                {
+                    Id = domainEvent.EventId,
+                    OccurredOnUtc = domainEvent.OccurredOnUtc,
+                    Type = eventType.AssemblyQualifiedName!,
+                    Content = JsonSerializer.Serialize(domainEvent, eventType),
+                    TenantId = tenantId,
+                    ProcessedOnUtc = null,
+                    Error = null,
+                    Attempts = 0,
+                });
+            }
         }
 
         var result = await base.SaveChangesAsync(cancellationToken);
